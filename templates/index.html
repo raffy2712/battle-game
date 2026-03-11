@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Battle Arena</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0d1a;
+    --card: #1a1a2e;
+    --card2: #16213e;
+    --accent: #e94560;
+    --accent2: #0f3460;
+    --gold: #ffd700;
+    --text: #eaeaea;
+    --muted: #888;
+    --green: #4caf50;
+    --blue: #2196f3;
+    --purple: #9c27b0;
+    --orange: #ff9800;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+  /* AUTH */
+  #auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 100%); }
+  .auth-box { background: var(--card); border-radius: 16px; padding: 40px; width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .auth-box h1 { text-align: center; font-size: 2rem; margin-bottom: 8px; color: var(--accent); }
+  .auth-box p { text-align: center; color: var(--muted); margin-bottom: 28px; font-size: 0.9rem; }
+  .auth-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+  .auth-tab { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.95rem; font-weight: 600; transition: all 0.2s; background: var(--card2); color: var(--muted); }
+  .auth-tab.active { background: var(--accent); color: white; }
+  .auth-input { width: 100%; padding: 12px 16px; background: var(--card2); border: 1px solid #333; border-radius: 8px; color: var(--text); font-size: 1rem; margin-bottom: 12px; outline: none; transition: border 0.2s; }
+  .auth-input:focus { border-color: var(--accent); }
+  .btn-primary { width: 100%; padding: 13px; background: var(--accent); border: none; border-radius: 8px; color: white; font-size: 1rem; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
+  .btn-primary:hover { opacity: 0.85; }
+  .auth-error { color: var(--accent); font-size: 0.85rem; margin-top: 8px; text-align: center; }
+
+  /* MAIN APP */
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+  .navbar { background: var(--card); padding: 0 20px; display: flex; align-items: center; justify-content: space-between; height: 60px; border-bottom: 1px solid #222; position: sticky; top: 0; z-index: 100; }
+  .navbar-brand { font-size: 1.3rem; font-weight: 800; color: var(--accent); }
+  .navbar-user { display: flex; align-items: center; gap: 16px; }
+  .points-badge { background: var(--accent2); padding: 6px 14px; border-radius: 20px; font-size: 0.9rem; font-weight: 600; }
+  .points-badge span { color: var(--gold); }
+  .btn-logout { background: none; border: 1px solid #444; padding: 6px 14px; border-radius: 8px; color: var(--muted); cursor: pointer; font-size: 0.85rem; }
+  .btn-logout:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-tabs { display: flex; gap: 4px; }
+  .nav-tab { padding: 8px 20px; border: none; background: none; color: var(--muted); cursor: pointer; font-size: 0.95rem; font-weight: 600; border-radius: 8px; transition: all 0.2s; }
+  .nav-tab.active { background: var(--accent); color: white; }
+
+  .page { display: none; padding: 24px 20px; max-width: 1000px; margin: 0 auto; width: 100%; }
+  .page.active { display: block; }
+
+  /* HOME PAGE */
+  .profile-card { background: var(--card); border-radius: 16px; padding: 28px; margin-bottom: 24px; display: flex; align-items: center; gap: 24px; }
+  .profile-avatar { width: 72px; height: 72px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 800; flex-shrink: 0; }
+  .profile-info h2 { font-size: 1.5rem; margin-bottom: 4px; }
+  .profile-stats { display: flex; gap: 20px; margin-top: 8px; }
+  .stat-item { text-align: center; }
+  .stat-item .val { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+  .stat-item .lbl { font-size: 0.75rem; color: var(--muted); }
+
+  .battle-section { background: var(--card); border-radius: 16px; padding: 28px; }
+  .battle-section h3 { font-size: 1.2rem; margin-bottom: 20px; }
+  .battle-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn-battle { padding: 14px 28px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+  .btn-create { background: var(--accent); color: white; }
+  .btn-join { background: var(--accent2); color: white; border: 1px solid var(--accent); }
+  .btn-battle:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--card); border-radius: 16px; padding: 32px; width: 90%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
+  .modal h3 { font-size: 1.3rem; margin-bottom: 20px; }
+  .modal-input { width: 100%; padding: 12px 16px; background: var(--card2); border: 1px solid #333; border-radius: 8px; color: var(--text); font-size: 1rem; margin-bottom: 12px; outline: none; }
+  .modal-input:focus { border-color: var(--accent); }
+  .modal-btns { display: flex; gap: 10px; margin-top: 16px; }
+  .btn-confirm { flex: 1; padding: 12px; background: var(--accent); border: none; border-radius: 8px; color: white; font-weight: 700; cursor: pointer; }
+  .btn-cancel { flex: 1; padding: 12px; background: var(--card2); border: 1px solid #444; border-radius: 8px; color: var(--muted); cursor: pointer; }
+
+  /* TEAM SELECT */
+  .team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .team-card { background: var(--card2); border-radius: 10px; padding: 12px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; text-align: center; position: relative; }
+  .team-card.selected { border-color: var(--accent); background: rgba(233,69,96,0.15); }
+  .team-card img { width: 70px; height: 70px; object-fit: cover; border-radius: 8px; margin-bottom: 6px; }
+  .team-card .char-name { font-size: 0.8rem; font-weight: 600; }
+  .team-card .char-grade { font-size: 0.75rem; color: var(--muted); }
+  .selected-count { color: var(--muted); font-size: 0.9rem; margin-bottom: 12px; }
+  .grade-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
+  .grade-C { background: #555; color: #fff; }
+  .grade-B { background: #2196f3; color: #fff; }
+  .grade-A { background: #9c27b0; color: #fff; }
+  .grade-S { background: #ff9800; color: #fff; }
+  .grade-SS { background: linear-gradient(135deg, #ffd700, #ff4500); color: #fff; }
+
+  /* GACHA PAGE */
+  .gacha-banner { background: linear-gradient(135deg, var(--accent2), var(--accent)); border-radius: 16px; padding: 40px; text-align: center; margin-bottom: 24px; }
+  .gacha-banner h2 { font-size: 2rem; font-weight: 800; margin-bottom: 8px; }
+  .gacha-banner p { color: rgba(255,255,255,0.8); }
+  .gacha-btns { display: flex; gap: 12px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
+  .btn-gacha { padding: 16px 36px; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+  .btn-gacha-1 { background: var(--card); color: var(--text); border: 2px solid var(--accent); }
+  .btn-gacha-10 { background: var(--gold); color: #000; }
+  .btn-gacha:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .gacha-info { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+  .gacha-info h4 { margin-bottom: 12px; color: var(--gold); }
+  .rate-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #222; font-size: 0.9rem; }
+  .rate-row:last-child { border: none; }
+  .gacha-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+  .result-card { background: var(--card); border-radius: 12px; padding: 14px; text-align: center; animation: popIn 0.4s ease; }
+  @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .result-card img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; }
+  .result-card .rname { font-size: 0.8rem; font-weight: 600; }
+  .result-new { border: 2px solid var(--gold); }
+
+  /* CHARACTERS PAGE */
+  .char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
+  .char-card { background: var(--card); border-radius: 14px; overflow: hidden; cursor: pointer; transition: transform 0.2s; }
+  .char-card:hover { transform: translateY(-4px); }
+  .char-card-img { width: 100%; height: 160px; object-fit: cover; }
+  .char-card-body { padding: 12px; }
+  .char-card-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+  .char-card-origin { font-size: 0.75rem; color: var(--muted); margin-bottom: 8px; }
+  .char-card-stars { color: var(--gold); font-size: 0.8rem; }
+
+  /* CHAR DETAIL MODAL */
+  .char-detail { display: flex; gap: 20px; flex-wrap: wrap; }
+  .char-detail-img { width: 140px; height: 140px; object-fit: cover; border-radius: 12px; flex-shrink: 0; }
+  .char-detail-info { flex: 1; min-width: 200px; }
+  .char-detail-info h3 { font-size: 1.4rem; margin-bottom: 4px; }
+  .char-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 16px 0; }
+  .char-stat { background: var(--card2); border-radius: 8px; padding: 10px; text-align: center; }
+  .char-stat .sv { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+  .char-stat .sl { font-size: 0.7rem; color: var(--muted); }
+  .skills-list { margin-top: 16px; }
+  .skills-list h4 { margin-bottom: 10px; color: var(--muted); font-size: 0.85rem; text-transform: uppercase; }
+  .skill-item { background: var(--card2); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; }
+  .skill-item .sname { font-weight: 700; font-size: 0.9rem; margin-bottom: 3px; }
+  .skill-item .sdesc { font-size: 0.8rem; color: var(--muted); }
+
+  /* BATTLE SCREEN */
+  #battle-screen { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 300; overflow-y: auto; padding: 20px; }
+  .battle-header { text-align: center; margin-bottom: 20px; }
+  .battle-header h2 { font-size: 1.5rem; color: var(--accent); }
+  .battle-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .battle-team { background: var(--card); border-radius: 12px; padding: 16px; }
+  .battle-team h4 { font-size: 0.9rem; color: var(--muted); margin-bottom: 12px; }
+  .battle-char { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; opacity: 1; transition: opacity 0.3s; }
+  .battle-char.dead { opacity: 0.3; }
+  .battle-char img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+  .battle-char-info { flex: 1; min-width: 0; }
+  .battle-char-name { font-size: 0.85rem; font-weight: 600; }
+  .hp-bar-bg { background: #333; border-radius: 4px; height: 8px; margin-top: 4px; }
+  .hp-bar { background: var(--green); border-radius: 4px; height: 8px; transition: width 0.5s; }
+  .hp-text { font-size: 0.7rem; color: var(--muted); }
+  .status-icons { font-size: 0.7rem; color: var(--orange); }
+
+  /* CARDS */
+  .cards-section { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .cards-section h4 { margin-bottom: 12px; font-size: 0.9rem; color: var(--muted); }
+  .cards-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+  .skill-card { background: var(--card2); border-radius: 10px; padding: 10px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; width: 140px; flex-shrink: 0; }
+  .skill-card:hover { border-color: var(--blue); }
+  .skill-card.selected-card { border-color: var(--accent); background: rgba(233,69,96,0.15); }
+  .skill-card.disabled { opacity: 0.4; cursor: not-allowed; }
+  .skill-card .sc-char { font-size: 0.7rem; color: var(--muted); margin-bottom: 2px; }
+  .skill-card .sc-name { font-size: 0.85rem; font-weight: 700; margin-bottom: 4px; }
+  .skill-card .sc-desc { font-size: 0.7rem; color: var(--muted); line-height: 1.3; }
+
+  /* TARGET SELECT */
+  .target-select { background: var(--card2); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+  .target-select h5 { font-size: 0.85rem; margin-bottom: 8px; color: var(--muted); }
+  .target-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-target { padding: 6px 12px; border: 1px solid #444; border-radius: 6px; background: var(--card); color: var(--text); cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
+  .btn-target:hover, .btn-target.chosen { border-color: var(--accent); color: var(--accent); background: rgba(233,69,96,0.1); }
+
+  .btn-confirm-skills { width: 100%; padding: 14px; background: var(--accent); border: none; border-radius: 10px; color: white; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 8px; }
+  .btn-confirm-skills:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* BATTLE LOG */
+  .battle-log { background: var(--card); border-radius: 12px; padding: 16px; max-height: 240px; overflow-y: auto; }
+  .battle-log h4 { font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
+  .log-entry { font-size: 0.82rem; padding: 3px 0; border-bottom: 1px solid #1a1a2e; color: var(--text); }
+  .log-entry:last-child { border: none; }
+  .log-separator { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; font-size: 0.78rem; font-weight: 700; }
+  .log-separator::before, .log-separator::after { content: ''; flex: 1; height: 1px; }
+  .log-separator.my-turn { color: var(--accent); }
+  .log-separator.my-turn::before, .log-separator.my-turn::after { background: var(--accent); opacity: 0.4; }
+  .log-separator.opp-turn { color: var(--blue); }
+  .log-separator.opp-turn::before, .log-separator.opp-turn::after { background: var(--blue); opacity: 0.4; }
+
+  /* GBK */
+  .gbk-modal { text-align: center; }
+  .gbk-buttons { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+  .btn-gbk { width: 80px; height: 80px; border: none; border-radius: 50%; font-size: 2.5rem; cursor: pointer; transition: transform 0.2s; background: var(--card2); }
+  .btn-gbk:hover { transform: scale(1.1); }
+  .btn-gbk.chosen { border: 3px solid var(--accent); }
+
+  /* WAITING */
+  .waiting-box { text-align: center; padding: 40px; }
+  .room-code { font-size: 3rem; font-weight: 800; color: var(--gold); letter-spacing: 8px; margin: 20px 0; }
+  .waiting-hint { color: var(--muted); font-size: 0.9rem; }
+
+  /* BATTLE END */
+  .battle-end { text-align: center; padding: 40px; }
+  .battle-end h2 { font-size: 2.5rem; font-weight: 800; margin-bottom: 16px; }
+  .win-text { color: var(--gold); }
+  .lose-text { color: var(--accent); }
+
+  /* TURN INDICATOR */
+  .turn-indicator { text-align: center; padding: 10px; background: var(--card2); border-radius: 8px; margin-bottom: 12px; font-weight: 700; }
+  .turn-indicator.your-turn { background: rgba(233,69,96,0.2); color: var(--accent); }
+  .turn-indicator.opp-turn { background: rgba(33,150,243,0.2); color: var(--blue); }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-state h3 { font-size: 1.3rem; margin-bottom: 8px; }
+
+  @media (max-width: 600px) {
+    .battle-teams { grid-template-columns: 1fr; }
+    .char-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .profile-card { flex-direction: column; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <h1>⚔️ Battle Arena</h1>
+    <p>Game battle karakter anime & mobile legend</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Login</button>
+      <button class="auth-tab" onclick="switchTab('register')">Register</button>
+    </div>
+    <input class="auth-input" id="auth-username" placeholder="Username" type="text"/>
+    <input class="auth-input" id="auth-password" placeholder="Password" type="password" onkeydown="if(event.key==='Enter')doAuth()"/>
+    <button class="btn-primary" onclick="doAuth()">Masuk</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <div class="navbar">
+    <div class="navbar-brand">⚔️ Battle Arena</div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showPage('home')">🏠 Home</button>
+      <button class="nav-tab" onclick="showPage('gacha')">🎲 Gacha</button>
+      <button class="nav-tab" onclick="showPage('characters')">📋 Karakter</button>
+    </div>
+    <div class="navbar-user">
+      <div class="points-badge">💰 <span id="nav-points">0</span></div>
+      <button class="btn-logout" onclick="location.href='/logout'">Logout</button>
+    </div>
+  </div>
+
+  <!-- HOME PAGE -->
+  <div class="page active" id="page-home">
+    <div class="profile-card">
+      <div class="profile-avatar" id="profile-avatar">?</div>
+      <div class="profile-info">
+        <h2 id="profile-username">Loading...</h2>
+        <div class="profile-stats">
+          <div class="stat-item"><div class="val" id="stat-wins">0</div><div class="lbl">Menang</div></div>
+          <div class="stat-item"><div class="val" id="stat-losses">0</div><div class="lbl">Kalah</div></div>
+          <div class="stat-item"><div class="val" id="stat-points">0</div><div class="lbl">Poin</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="battle-section">
+      <h3>⚔️ Battle</h3>
+      <p style="color:var(--muted);margin-bottom:20px;font-size:0.9rem;">Pilih 3 karakter dari koleksimu, lalu buat atau join room untuk battle!</p>
+      <div class="battle-btns">
+        <button class="btn-battle btn-create" onclick="openCreateRoom()">🗡️ Buat Room</button>
+        <button class="btn-battle btn-join" onclick="openJoinRoom()">🛡️ Join Room</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GACHA PAGE -->
+  <div class="page" id="page-gacha">
+    <div class="gacha-banner">
+      <h2>🎲 Gacha</h2>
+      <p>Roll untuk mendapatkan karakter baru! Setiap pull ke-10 dijamin grade A ke atas.</p>
+      <div class="gacha-btns">
+        <button class="btn-gacha btn-gacha-1" onclick="doGacha(1)">Roll 1x<br><small>1 Poin</small></button>
+        <button class="btn-gacha btn-gacha-10" onclick="doGacha(10)">Roll 10x<br><small>10 Poin</small></button>
+      </div>
+    </div>
+    <div class="gacha-info">
+      <h4>📊 Rate Gacha</h4>
+      <div class="rate-row"><span><span class="grade-badge grade-C">C</span> Common</span><span>40%</span></div>
+      <div class="rate-row"><span><span class="grade-badge grade-B">B</span> Uncommon</span><span>30%</span></div>
+      <div class="rate-row"><span><span class="grade-badge grade-A">A</span> Rare</span><span>18%</span></div>
+      <div class="rate-row"><span><span class="grade-badge grade-S">S</span> Epic</span><span>9%</span></div>
+      <div class="rate-row"><span><span class="grade-badge grade-SS">SS</span> Legendary</span><span>3%</span></div>
+    </div>
+    <div id="gacha-results-container"></div>
+  </div>
+
+  <!-- CHARACTERS PAGE -->
+  <div class="page" id="page-characters">
+    <div id="char-grid-container"></div>
+  </div>
+</div>
+
+<!-- BATTLE SCREEN -->
+<div id="battle-screen">
+  <div id="battle-content"></div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-create">
+  <div class="modal">
+    <h3>🗡️ Buat Room</h3>
+    <p style="color:var(--muted);font-size:0.9rem;margin-bottom:16px;">Pilih 3 karakter untuk timmu:</p>
+    <div class="selected-count" id="create-selected-count">Dipilih: 0/3</div>
+    <div class="team-grid" id="create-team-grid"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-create')">Batal</button>
+      <button class="btn-confirm" onclick="confirmCreateRoom()">Buat Room ▶</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-join">
+  <div class="modal">
+    <h3>🛡️ Join Room</h3>
+    <input class="modal-input" id="join-code-input" placeholder="Masukkan kode room (6 huruf)" maxlength="6" style="text-transform:uppercase"/>
+    <p style="color:var(--muted);font-size:0.9rem;margin-bottom:12px;">Pilih 3 karakter untuk timmu:</p>
+    <div class="selected-count" id="join-selected-count">Dipilih: 0/3</div>
+    <div class="team-grid" id="join-team-grid"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-join')">Batal</button>
+      <button class="btn-confirm" onclick="confirmJoinRoom()">Join Room ▶</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-char-detail">
+  <div class="modal">
+    <div id="char-detail-content"></div>
+    <div class="modal-btns" style="margin-top:20px">
+      <button class="btn-cancel" onclick="closeModal('modal-char-detail')" style="flex:none;padding:10px 24px">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const socket = io();
+let userData = null;
+let currentRoom = null;
+let myPlayerIndex = null;
+let selectedCards = [];
+let pendingTargetCard = null;
+let authMode = 'login';
+
+// ─── AUTH ───────────────────────────────────────────────────────────────────
+
+function switchTab(mode) {
+  authMode = mode;
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (i===0&&mode==='login')||(i===1&&mode==='register')));
+}
+
+async function doAuth() {
+  const username = document.getElementById('auth-username').value.trim();
+  const password = document.getElementById('auth-password').value.trim();
+  const url = authMode === 'login' ? '/login' : '/register';
+  const res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password})});
+  const data = await res.json();
+  if (data.success) {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    await loadUserData();
+    if (userData) socket.emit('auth', {user_id: userData.id || 0});
+  } else {
+    document.getElementById('auth-error').textContent = data.message;
+  }
+}
+
+// ─── DATA ────────────────────────────────────────────────────────────────────
+
+async function loadUserData() {
+  const res = await fetch('/me');
+  if (!res.ok) return;
+  userData = await res.json();
+  updateUI();
+}
+
+function updateUI() {
+  if (!userData) return;
+  document.getElementById('nav-points').textContent = userData.points;
+  document.getElementById('profile-username').textContent = userData.username;
+  document.getElementById('profile-avatar').textContent = userData.username[0].toUpperCase();
+  document.getElementById('stat-wins').textContent = userData.wins;
+  document.getElementById('stat-losses').textContent = userData.losses;
+  document.getElementById('stat-points').textContent = userData.points;
+  renderCharGrid();
+}
+
+// ─── PAGES ───────────────────────────────────────────────────────────────────
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  const tabs = {'home':0,'gacha':1,'characters':2};
+  document.querySelectorAll('.nav-tab')[tabs[name]].classList.add('active');
+  if (name === 'characters') renderCharGrid();
+}
+
+// ─── CHARS ───────────────────────────────────────────────────────────────────
+
+function gradeColor(g) {
+  return {'C':'#555','B':'#2196f3','A':'#9c27b0','S':'#ff9800','SS':'#ffd700'}[g] || '#555';
+}
+
+function starsHtml(n) {
+  return '⭐'.repeat(n);
+}
+
+function charImgSrc(img) {
+  return '/static/images/characters/' + img;
+}
+
+function renderCharGrid() {
+  if (!userData) return;
+  const container = document.getElementById('char-grid-container');
+  if (!userData.collection || userData.collection.length === 0) {
+    container.innerHTML = '<div class="empty-state"><h3>Koleksi Kosong</h3><p>Roll gacha untuk mendapatkan karakter!</p></div>';
+    return;
+  }
+  container.innerHTML = '<div class="char-grid">' +
+    userData.collection.map(c => `
+      <div class="char-card" onclick="showCharDetail('${c.id}')">
+        <img class="char-card-img" src="${charImgSrc(c.image)}" onerror="this.src='https://via.placeholder.com/160x160/1a1a2e/888?text=${encodeURIComponent(c.name)}'" alt="${c.name}"/>
+        <div class="char-card-body">
+          <div class="char-card-name">${c.name}</div>
+          <div class="char-card-origin">${c.origin}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+            <span class="grade-badge grade-${c.grade}">${c.grade}</span>
+            <span class="char-card-stars">${starsHtml(c.stars)}</span>
+          </div>
+        </div>
+      </div>
+    `).join('') + '</div>';
+}
+
+function showCharDetail(charId) {
+  if (!userData) return;
+  const c = userData.collection.find(x => x.id === charId);
+  if (!c) return;
+  const html = `
+    <div class="char-detail">
+      <img class="char-detail-img" src="${charImgSrc(c.image)}" onerror="this.src='https://via.placeholder.com/140x140/1a1a2e/888?text=${encodeURIComponent(c.name)}'" alt="${c.name}"/>
+      <div class="char-detail-info">
+        <h3>${c.name}</h3>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+          <span class="grade-badge grade-${c.grade}">${c.grade}</span>
+          <span style="color:var(--gold)">${starsHtml(c.stars)}</span>
+        </div>
+        <div style="color:var(--muted);font-size:0.85rem">${c.origin} · ${c.role}</div>
+      </div>
+    </div>
+    <div class="char-stats">
+      <div class="char-stat"><div class="sv">${c.hp}</div><div class="sl">HP</div></div>
+      <div class="char-stat"><div class="sv">${c.attack}</div><div class="sl">Attack</div></div>
+      <div class="char-stat"><div class="sv">${c.defense}</div><div class="sl">Defense</div></div>
+    </div>
+    <div class="skills-list">
+      <h4>Skills</h4>
+      ${c.skills.map(s => `
+        <div class="skill-item">
+          <div class="sname">${s.name}</div>
+          <div class="sdesc">${s.description}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  document.getElementById('char-detail-content').innerHTML = html;
+  openModal('modal-char-detail');
+}
+
+// ─── GACHA ───────────────────────────────────────────────────────────────────
+
+async function doGacha(count) {
+  const res = await fetch('/gacha', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({count})});
+  const data = await res.json();
+  if (!data.success) {
+    alert(data.message);
+    return;
+  }
+  userData.points = data.points;
+  document.getElementById('nav-points').textContent = data.points;
+  document.getElementById('stat-points').textContent = data.points;
+  const cont = document.getElementById('gacha-results-container');
+  cont.innerHTML = '<div class="gacha-results">' +
+    data.results.map((r, i) => `
+      <div class="result-card ${r.is_new ? 'result-new' : ''}" style="animation-delay:${i*0.1}s">
+        <img src="${charImgSrc(r.image)}" onerror="this.src='https://via.placeholder.com/80x80/1a1a2e/888?text=${encodeURIComponent(r.name)}'" alt="${r.name}"/>
+        <div class="rname">${r.name}</div>
+        <span class="grade-badge grade-${r.grade}">${r.grade}</span>
+        <div style="color:var(--gold);font-size:0.8rem;margin-top:4px">${starsHtml(r.stars)}</div>
+        ${r.is_new ? '<div style="color:var(--gold);font-size:0.7rem;margin-top:4px">✨ BARU!</div>' : ''}
+      </div>
+    `).join('') + '</div>';
+  await loadUserData();
+}
+
+// ─── BATTLE SETUP ─────────────────────────────────────────────────────────────
+
+let createTeam = [];
+let joinTeam = [];
+
+function openCreateRoom() {
+  createTeam = [];
+  renderTeamGrid('create-team-grid', createTeam, 'create-selected-count');
+  openModal('modal-create');
+}
+
+function openJoinRoom() {
+  joinTeam = [];
+  renderTeamGrid('join-team-grid', joinTeam, 'join-selected-count');
+  openModal('modal-join');
+}
+
+function renderTeamGrid(gridId, team, countId) {
+  if (!userData || !userData.collection) return;
+  const grid = document.getElementById(gridId);
+  grid.innerHTML = userData.collection.map(c => `
+    <div class="team-card ${team.includes(c.id) ? 'selected' : ''}" onclick="toggleTeamChar('${c.id}','${gridId}','${countId}')">
+      <img src="${charImgSrc(c.image)}" onerror="this.src='https://via.placeholder.com/70x70/1a1a2e/888?text=${encodeURIComponent(c.name)}'" style="width:70px;height:70px;object-fit:cover;border-radius:8px;margin-bottom:6px"/>
+      <div class="char-name">${c.name}</div>
+      <div style="margin-top:4px"><span class="grade-badge grade-${c.grade}">${c.grade}</span></div>
+    </div>
+  `).join('');
+}
+
+function toggleTeamChar(cid, gridId, countId) {
+  const team = gridId.startsWith('create') ? createTeam : joinTeam;
+  const idx = team.indexOf(cid);
+  if (idx >= 0) {
+    team.splice(idx, 1);
+  } else if (team.length < 3) {
+    team.push(cid);
+  }
+  renderTeamGrid(gridId, team, countId);
+  document.getElementById(countId).textContent = `Dipilih: ${team.length}/3`;
+}
+
+function confirmCreateRoom() {
+  if (createTeam.length !== 3) { alert('Pilih tepat 3 karakter!'); return; }
+  closeModal('modal-create');
+  socket.emit('create_room', {team: createTeam});
+}
+
+function confirmJoinRoom() {
+  if (joinTeam.length !== 3) { alert('Pilih tepat 3 karakter!'); return; }
+  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  if (!code || code.length !== 6) { alert('Masukkan kode room yang valid!'); return; }
+  window._roomCode = code;
+  closeModal('modal-join');
+  document.getElementById('battle-screen').style.display = 'block';
+  document.getElementById('battle-content').innerHTML = '<div class="waiting-box"><p style="color:var(--muted)">Bergabung ke room <strong style="color:var(--gold)">' + code + '</strong>...</p></div>';
+  socket.emit('join_room_battle', {code, team: joinTeam});
+}
+
+// ─── SOCKET EVENTS ────────────────────────────────────────────────────────────
+
+socket.on('room_created', (data) => {
+  window._roomCode = data.code;
+  currentRoom = null;
+  document.getElementById('battle-screen').style.display = 'block';
+  document.getElementById('battle-content').innerHTML = `
+    <div class="waiting-box">
+      <h2 style="color:var(--accent);margin-bottom:16px">Room Dibuat! 🎉</h2>
+      <p style="color:var(--muted)">Kirim kode ini ke temanmu:</p>
+      <div class="room-code">${data.code}</div>
+      <p class="waiting-hint">Menunggu teman bergabung...</p>
+      <button class="btn-cancel" style="margin-top:20px;padding:10px 24px;border-radius:8px;cursor:pointer" onclick="exitBattle()">Batal</button>
+    </div>
+  `;
+});
+
+socket.on('battle_start', (data) => {
+  currentRoom = data.room;
+  myPlayerIndex = data.player_index;
+  selectedCards = [];
+  renderBattle();
+  // show GBK
+  showGBK();
+});
+
+socket.on('gbk_result', (data) => {
+  currentRoom = data.room;
+  const firstUsername = currentRoom.players[data.first].username;
+  setTimeout(() => {
+    renderBattle();
+    showGBKResult(data.your_choice, data.opp_choice, firstUsername);
+  }, 500);
+});
+
+socket.on('turn_result', (data) => {
+  currentRoom = data.room;
+  selectedCards = [];
+  pendingTargetCard = null;
+  renderBattle();
+});
+
+socket.on('battle_ended', (data) => {
+  currentRoom = data.room;
+  renderBattleEnd(data.you_win, data.winner, data.log);
+});
+
+socket.on('error', (data) => {
+  alert(data.message);
+});
+
+// ─── BATTLE RENDER ───────────────────────────────────────────────────────────
+
+function renderBattle() {
+  if (!currentRoom) return;
+  const room = currentRoom;
+  const me = room.players[myPlayerIndex];
+  const opp = room.players[1 - myPlayerIndex];
+  const isMyTurn = room.turn === myPlayerIndex;
+
+  let html = `
+    <div class="battle-header">
+      <h2>⚔️ Battle</h2>
+    </div>
+    <div class="${isMyTurn ? 'turn-indicator your-turn' : 'turn-indicator opp-turn'}">
+      ${isMyTurn ? '⚔️ Giliran Kamu!' : `⏳ Giliran ${opp.username}...`}
+    </div>
+    <div class="battle-teams">
+      <div class="battle-team">
+        <h4 style="color:var(--accent)">👤 ${me.username} (Kamu)</h4>
+        ${me.chars.map(c => renderBattleChar(c)).join('')}
+      </div>
+      <div class="battle-team">
+        <h4 style="color:var(--blue)">👤 ${opp.username} (Lawan)</h4>
+        ${opp.chars.map(c => renderBattleChar(c)).join('')}
+      </div>
+    </div>
+  `;
+
+  if (isMyTurn) {
+    html += renderCardSection(me.cards, opp.chars);
+  }
+
+  html += renderBattleLog(room.log);
+  document.getElementById('battle-content').innerHTML = html;
+}
+
+function renderBattleChar(c) {
+  const hpPct = Math.max(0, Math.round((c.hp / c.max_hp) * 100));
+  const hpColor = hpPct > 50 ? 'var(--green)' : hpPct > 25 ? 'var(--orange)' : 'var(--accent)';
+  const effects = [...(c.status_effects||[]), ...(c.buffs||[])].map(e => {
+    const icons = {burn:'🔥',bleed:'🩸',poison:'☠️',stun:'⚡',slow:'🐢',shield:'🛡️',attack_up:'⬆️',defense_up:'🔰',counter:'↩️',undying:'💫',heal_block:'🚫',block_all:'🛡️',all_stats_up:'✨'};
+    return icons[e.type] || '❓';
+  }).join('');
+  return `
+    <div class="battle-char ${!c.is_alive ? 'dead' : ''}">
+      <img src="${charImgSrc(c.image)}" onerror="this.src='https://via.placeholder.com/44x44/1a1a2e/888?text=${encodeURIComponent(c.name[0])}'" alt="${c.name}"/>
+      <div class="battle-char-info">
+        <div class="battle-char-name">${c.name} <span class="grade-badge grade-${c.grade}">${c.grade}</span></div>
+        <div class="hp-bar-bg"><div class="hp-bar" style="width:${hpPct}%;background:${hpColor}"></div></div>
+        <div class="hp-text">${c.hp} / ${c.max_hp} ${effects}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCardSection(cards, oppChars) {
+  const aliveOpp = oppChars.filter(c => c.is_alive);
+  let html = `<div class="cards-section"><h4>🃏 Kartu Kamu (pilih 3)</h4><div class="cards-grid">`;
+  cards.forEach((card, i) => {
+    const isSelected = selectedCards.find(s => s.card_index === i);
+    const disabled = !isSelected && selectedCards.length >= 3;
+    html += `
+      <div class="skill-card ${isSelected ? 'selected-card' : ''} ${disabled ? 'disabled' : ''}" onclick="toggleCard(${i})">
+        <div class="sc-char">${card.char_name || card.char_id}</div>
+        <div class="sc-name">${card.skill?.name || '?'}</div>
+        <div class="sc-desc">${card.skill?.description || ''}</div>
+      </div>
+    `;
+  });
+  html += `</div>`;
+
+  // target selection for single_enemy skills
+  if (pendingTargetCard !== null && aliveOpp.length > 1) {
+    const card = cards[pendingTargetCard];
+    if (card && card.skill && card.skill.target === 'single_enemy') {
+      html += `<div class="target-select"><h5>Pilih target untuk ${card.skill.name}:</h5><div class="target-btns">`;
+      aliveOpp.forEach(c => {
+        html += `<button class="btn-target" onclick="setTarget('${c.id}')">${c.name}</button>`;
+      });
+      html += `</div></div>`;
+    }
+  }
+
+  html += `<button class="btn-confirm-skills" ${selectedCards.length < 3 ? 'disabled' : ''} onclick="confirmSkills()">✅ Eksekusi ${selectedCards.length}/3 Skill</button></div>`;
+  return html;
+}
+
+function toggleCard(idx) {
+  const existing = selectedCards.findIndex(s => s.card_index === idx);
+  if (existing >= 0) {
+    selectedCards.splice(existing, 1);
+    pendingTargetCard = null;
+  } else if (selectedCards.length < 3) {
+    const card = currentRoom.players[myPlayerIndex].cards[idx];
+    const needsTarget = card.skill && card.skill.target === 'single_enemy';
+    selectedCards.push({card_index: idx, target_char_id: null});
+    if (needsTarget) {
+      pendingTargetCard = idx;
+    }
+  }
+  renderBattle();
+}
+
+function setTarget(charId) {
+  const sel = selectedCards.find(s => s.card_index === pendingTargetCard);
+  if (sel) sel.target_char_id = charId;
+  pendingTargetCard = null;
+  renderBattle();
+}
+
+function confirmSkills() {
+  if (selectedCards.length !== 3 || !currentRoom) return;
+  socket.emit('select_skills', {
+    code: getRoomCode(),
+    selected: selectedCards,
+  });
+}
+
+function getRoomCode() {
+  // room code is stored in waiting box or we need to track it
+  return window._roomCode || '';
+}
+
+function renderBattleLog(log) {
+  if (!log || log.length === 0) return '';
+  const entries = [...log].reverse().map(l => {
+    if (l.startsWith('---TURN:')) {
+      const username = l.replace('---TURN:', '').replace('---', '');
+      const isMe = userData && username === userData.username;
+      const cls = isMe ? 'my-turn' : 'opp-turn';
+      return `<div class="log-separator ${cls}">⚔️ Giliran ${username}</div>`;
+    }
+    return `<div class="log-entry">${l}</div>`;
+  }).join('');
+  return `
+    <div class="battle-log">
+      <h4>📜 Battle Log</h4>
+      ${entries}
+    </div>
+  `;
+}
+
+function showGBK() {
+  document.getElementById('battle-content').innerHTML = `
+    <div class="waiting-box gbk-modal">
+      <h2>✊✌️🖐️</h2>
+      <h3 style="margin:16px 0">Gunting Batu Kertas!</h3>
+      <p style="color:var(--muted)">Siapa yang menang, dia giliran pertama</p>
+      <div class="gbk-buttons">
+        <button class="btn-gbk" onclick="chooseGBK('rock')" title="Batu">✊</button>
+        <button class="btn-gbk" onclick="chooseGBK('scissors')" title="Gunting">✌️</button>
+        <button class="btn-gbk" onclick="chooseGBK('paper')" title="Kertas">🖐️</button>
+      </div>
+    </div>
+  `;
+}
+
+function chooseGBK(choice) {
+  document.querySelectorAll('.btn-gbk').forEach(b => b.classList.remove('chosen'));
+  document.querySelectorAll('.btn-gbk').forEach(b => { if(b.title.toLowerCase().includes(choice==='rock'?'batu':choice==='scissors'?'gunting':'kertas')) b.classList.add('chosen'); });
+  document.getElementById('battle-content').innerHTML += `<p style="text-align:center;color:var(--muted);margin-top:16px">Menunggu lawan memilih...</p>`;
+  socket.emit('gbk_choice', {code: window._roomCode, choice});
+}
+
+function showGBKResult(yourChoice, oppChoice, firstUsername) {
+  const icons = {rock:'✊', scissors:'✌️', paper:'🖐️'};
+  document.getElementById('battle-content').innerHTML = `
+    <div class="waiting-box">
+      <h3 style="margin-bottom:20px">Hasil GBK</h3>
+      <div style="display:flex;gap:40px;justify-content:center;font-size:3rem">
+        <div style="text-align:center"><div>${icons[yourChoice]||'?'}</div><div style="font-size:0.9rem;color:var(--muted)">Kamu</div></div>
+        <div style="text-align:center;font-size:1.5rem;color:var(--muted);align-self:center">VS</div>
+        <div style="text-align:center"><div>${icons[oppChoice]||'?'}</div><div style="font-size:0.9rem;color:var(--muted)">Lawan</div></div>
+      </div>
+      <p style="margin-top:20px;font-weight:700;color:var(--gold)">⚔️ ${firstUsername} jalan duluan!</p>
+    </div>
+  `;
+  setTimeout(() => renderBattle(), 2000);
+}
+
+function renderBattleEnd(youWin, winner, log) {
+  document.getElementById('battle-content').innerHTML = `
+    <div class="battle-end">
+      <h2 class="${youWin ? 'win-text' : 'lose-text'}">${youWin ? '🏆 Menang!' : '💀 Kalah!'}</h2>
+      <p style="color:var(--muted);margin-bottom:8px">${youWin ? 'Selamat, kamu memenangkan battle ini!' : `${winner} memenangkan battle ini.`}</p>
+      ${youWin ? '<p style="color:var(--gold);margin-bottom:24px">+1 Poin diterima!</p>' : '<p style="margin-bottom:24px"></p>'}
+      ${renderBattleLog(log)}
+      <button class="btn-battle btn-create" style="margin-top:20px" onclick="exitBattle()">🏠 Kembali ke Home</button>
+    </div>
+  `;
+  loadUserData();
+}
+
+function exitBattle() {
+  document.getElementById('battle-screen').style.display = 'none';
+  currentRoom = null;
+  myPlayerIndex = null;
+  selectedCards = [];
+  window._roomCode = null;
+}
+
+// ─── MODAL HELPERS (defined early so confirmJoinRoom can reference openModal) ──
+
+// ─── MODAL HELPERS ────────────────────────────────────────────────────────────
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// click outside modal to close
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
+});
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+
+(async () => {
+  const res = await fetch('/me');
+  if (res.ok) {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('app').style.flexDirection = 'column';
+    userData = await res.json();
+    updateUI();
+    socket.emit('auth', {user_id: userData.id || 0});
+  } else {
+    // not logged in, show auth screen
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+  }
+})();
+</script>
+</body>
+</html>
