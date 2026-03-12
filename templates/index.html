@@ -721,11 +721,14 @@ function renderBattleChar(c) {
   const hpPct = Math.max(0, Math.round((c.hp / c.max_hp) * 100));
   const hpColor = hpPct > 50 ? 'var(--green)' : hpPct > 25 ? 'var(--orange)' : 'var(--accent)';
   const effectIcons = {
-    burn:'🔥', bleed:'🩸', poison:'☠️', stun:'⚡', slow:'🐢',
-    shield:'🛡️', attack_up:'⬆️', defense_up:'🔰', counter:'↩️',
-    undying:'💫', heal_block:'🚫', block_all:'🛡️', all_stats_up:'✨',
-    invincible_counter:'🛡️✨', skip_turn:'⏭️'
-  };
+  burn:'🔥', bleed:'🩸', poison:'☠️',
+  stun:'⚡', skip_turn:'⏭️', slow:'🐢',
+  heal_block:'🚫', attack_down:'⬇️', defense_down:'💔',
+  permanent_stat_down:'💀',
+  shield:'🛡️', attack_up:'⚔️', defense_up:'🔰',
+  all_stats_up:'✨', counter:'↩️', block_all:'🧱',
+  invincible_counter:'🪞', undying:'💫', heal_over_time:'💚',
+};
   const effects = [...(c.status_effects||[]), ...(c.buffs||[])].map(e => effectIcons[e.type] || '').join('');
   return `
     <div class="battle-char ${!c.is_alive ? 'dead' : ''}">

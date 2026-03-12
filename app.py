@@ -443,18 +443,30 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
 
                 if skill.get('lifesteal'):
                     heal = math.floor(total_dmg * skill['lifesteal'])
-                    actor['hp'] = min(actor['max_hp'], actor['hp'] + heal)
-                    log.append(f"{actor['name']} lifesteal +{heal} HP.")
+                    heal_blocked = any(se.get('type') == 'heal_block' for se in actor.get('status_effects', []))
+                    if not heal_blocked and heal > 0:
+                        actor['hp'] = min(actor['max_hp'], actor['hp'] + heal)
+                        log.append(f"{actor['name']} lifesteal +{heal} HP.")
+                    elif heal_blocked:
+                        log.append(f"{actor['name']} tidak bisa di-heal (lifesteal diblokir)!")
 
                 if skill.get('drain'):
                     drain_amt = math.floor(total_dmg * skill['drain'])
-                    actor['hp'] = min(actor['max_hp'], actor['hp'] + drain_amt)
-                    log.append(f"{actor['name']} drain +{drain_amt} HP.")
+                    heal_blocked = any(se.get('type') == 'heal_block' for se in actor.get('status_effects', []))
+                    if not heal_blocked and drain_amt > 0:
+                        actor['hp'] = min(actor['max_hp'], actor['hp'] + drain_amt)
+                        log.append(f"{actor['name']} drain +{drain_amt} HP.")
+                    elif heal_blocked:
+                        log.append(f"{actor['name']} tidak bisa di-heal (drain diblokir)!")
 
                 if skill.get('self_heal'):
                     heal_amt = math.floor(actor['max_hp'] * skill['self_heal'])
-                    actor['hp'] = min(actor['max_hp'], actor['hp'] + heal_amt)
-                    log.append(f"{actor['name']} heal diri sendiri +{heal_amt} HP.")
+                    heal_blocked = any(se.get('type') == 'heal_block' for se in actor.get('status_effects', []))
+                    if not heal_blocked and heal_amt > 0:
+                        actor['hp'] = min(actor['max_hp'], actor['hp'] + heal_amt)
+                        log.append(f"{actor['name']} heal diri sendiri +{heal_amt} HP.")
+                    elif heal_blocked:
+                        log.append(f"{actor['name']} tidak bisa di-heal!")
 
                 if skill.get('overflow_damage') and target['hp'] <= 0:
                     # Sisa damage yang "kelebihan" dari HP awal target dialirkan ke musuh berikutnya
@@ -514,7 +526,18 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
     # ── HEAL ──
     elif stype == 'heal':
         heal_mult = skill.get('heal_multiplier', 1.0)
-        heal_amt = math.floor(actor['attack'] * heal_mult)
+        # Hitung attack efektif untuk heal, memperhitungkan buff/debuff attack
+        effective_attack = actor['attack']
+        for b in actor.get('buffs', []):
+            if b['type'] == 'attack_up':
+                effective_attack *= (1 + b['value'])
+            elif b['type'] == 'attack_down':
+                effective_attack *= (1 - b['value'])
+            elif b['type'] == 'all_stats_up':
+                effective_attack *= (1 + b['value'])
+            elif b['type'] == 'permanent_stat_down':
+                effective_attack *= (1 - b.get('attack_down', 0))
+        heal_amt = math.floor(effective_attack * heal_mult)
         targets = []
         if target_type == 'self':
             targets = [actor]
@@ -651,8 +674,12 @@ def tick_dot_effects(chars):
                     log.append(f"{c['name']} telah dikalahkan!")
             elif setype == 'heal_over_time':
                 heal_val = se.get('value', 0)
-                c['hp'] = min(c['max_hp'], c['hp'] + heal_val)
-                log.append(f"{c['name']} +{heal_val} HP dari heal bertahap.")
+                heal_blocked = any(e.get('type') == 'heal_block' for e in c.get('status_effects', []))
+                if not heal_blocked and heal_val > 0:
+                    c['hp'] = min(c['max_hp'], c['hp'] + heal_val)
+                    log.append(f"{c['name']} +{heal_val} HP dari heal bertahap.")
+                elif heal_blocked:
+                    log.append(f"{c['name']} tidak bisa di-heal (heal bertahap diblokir)!")
     return log
 
 def tick_duration_effects(chars):
