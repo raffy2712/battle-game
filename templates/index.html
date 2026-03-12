@@ -867,11 +867,13 @@ function setTarget(charId) {
 }
 
 function confirmSkills() {
-  if (selectedCards.length !== 3 || !currentRoom) return;
-  socket.emit('select_skills', {code: window._roomCode, selected: selectedCards});
-  // Disable button to prevent double send
-  const btn = document.querySelector('.btn-confirm-skills');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Mengirim...'; }
+    if (selectedCards.length !== 3 || !currentRoom) return;
+    const toSend = [...selectedCards]; // copy dulu sebelum dikosongkan
+    selectedCards = [];
+    pendingTargetCard = null;
+    socket.emit('select_skills', {code: window._roomCode, selected: toSend});
+    const btn = document.querySelector('.btn-confirm-skills');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Mengirim...'; }
 }
 
 function renderBattleLog(log) {
