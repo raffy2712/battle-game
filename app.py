@@ -632,6 +632,28 @@ def on_auth(data):
 def on_disconnect():
     connected_users.pop(request.sid, None)
 
+@socketio.on('rejoin_battle')
+def on_rejoin_battle(data):
+    user = get_socket_user()
+    if not user:
+        return
+    code = data.get('code', '').strip().upper()
+    if code not in rooms:
+        emit('error', {'message': 'Room tidak ditemukan.'})
+        return
+    room = rooms[code]
+    # update sid for this player
+    pidx = next((i for i, p in enumerate(room['players']) if p['user_id'] == user.id), None)
+    if pidx is None:
+        return
+    room['players'][pidx]['sid'] = request.sid
+    join_room(code)
+    emit('turn_result', {
+        'log': [],
+        'room': sanitize_room(room, pidx),
+        'turn_username': room['players'][room['turn']]['username'],
+    })
+
 def get_socket_user():
     uid = connected_users.get(request.sid)
     if not uid:
@@ -856,11 +878,14 @@ def _end_battle(room, winner_idx):
 def sanitize_room(room, player_idx):
     """Return room state safe to send to a specific player."""
     players_out = []
+    current_turn = room['turn']
     for i, p in enumerate(room['players']):
+        # Only show cards to the player whose turn it is AND it's their own cards
+        show_cards = (i == player_idx) and (player_idx == current_turn)
         players_out.append({
             'username': p['username'],
             'chars': p['chars'],
-            'cards': p['cards'] if i == player_idx else [{'char_name': '?', 'skill': {'name': '?'}} for _ in p['cards']],
+            'cards': p['cards'] if show_cards else [{'char_name': '?', 'skill': {'name': '?'}} for _ in p['cards']],
         })
     return {
         'players': players_out,

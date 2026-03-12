@@ -627,6 +627,22 @@ socket.on('error', (data) => {
   alert(data.message);
 });
 
+socket.on('disconnect', () => {
+  console.log('Socket disconnected');
+});
+
+socket.on('connect', () => {
+  console.log('Socket connected/reconnected');
+  // re-auth on reconnect
+  if (userData) {
+    socket.emit('auth', {user_id: userData.id});
+    // if in battle, re-sync
+    if (currentRoom && window._roomCode) {
+      socket.emit('rejoin_battle', {code: window._roomCode});
+    }
+  }
+});
+
 // ─── BATTLE RENDER ───────────────────────────────────────────────────────────
 
 function renderBattle() {
