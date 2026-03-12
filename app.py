@@ -194,7 +194,7 @@ def gacha():
 
 # ─── ADMIN ───────────────────────────────────────────────────────────────────
 
-ADMIN_USERNAME = 'raffyadmin'
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'raffyadmin')
 
 def is_admin():
     return current_user.is_authenticated and current_user.username == ADMIN_USERNAME
@@ -312,11 +312,29 @@ def draw_cards(pool, count=5):
         return pool[:]
     return random.sample(pool, count)
 
+def is_char_stunned(char):
+    """Check if a character is stunned or has skip_turn effect."""
+    return any(se['type'] in ['stun', 'skip_turn'] for se in char.get('status_effects', []))
+
 def calc_damage(attacker, defender, skill, next_skill_boost=0):
     mult = skill.get('damage_multiplier', 0)
     if mult == 0:
         return 0
     raw = attacker['attack'] * mult
+
+    # attack buffs on attacker
+    for b in attacker['buffs']:
+        if b['type'] == 'attack_up':
+            raw *= (1 + b['value'])
+        elif b['type'] == 'attack_down':
+            raw *= (1 - b['value'])
+        elif b['type'] == 'all_stats_up':
+            raw *= (1 + b['value'])
+
+    # permanent stat down on attacker
+    for b in attacker['buffs']:
+        if b['type'] == 'permanent_stat_down':
+            raw *= (1 - b.get('attack_down', 0))
 
     # next skill boost
     if next_skill_boost > 0:
@@ -326,7 +344,7 @@ def calc_damage(attacker, defender, skill, next_skill_boost=0):
     ignore = skill.get('ignore_defense', 0)
     effective_def = defender['defense'] * (1 - ignore)
 
-    # defense buffs/debuffs
+    # defense buffs/debuffs on defender
     for b in defender['buffs']:
         if b['type'] == 'defense_up':
             effective_def *= (1 + b['value'])
@@ -334,6 +352,11 @@ def calc_damage(attacker, defender, skill, next_skill_boost=0):
             effective_def *= (1 - b['value'])
         elif b['type'] == 'all_stats_up':
             effective_def *= (1 + b['value'])
+
+    # permanent stat down on defender defense
+    for b in defender['buffs']:
+        if b['type'] == 'permanent_stat_down':
+            effective_def *= (1 - b.get('defense_down', 0))
 
     dmg = max(1, math.floor(raw - effective_def * 0.5))
     return dmg
@@ -371,6 +394,8 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
         for target in targets:
             # check block
             blocked = any(b['type'] in ['block_all', 'invincible_counter'] for b in target['buffs'])
+            # check counter (Levi counter_stance) — reflect tapi tidak block serangan
+            counter_buff = next((b for b in target['buffs'] if b['type'] == 'counter'), None)
             total_dmg = 0
             for h in range(hits):
                 is_last = (h == hits - 1)
@@ -378,14 +403,12 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                 if skill.get('last_hit_double') and is_last:
                     dmg *= 2
                 if blocked:
-                    # reflect
                     reflect_val = next((b.get('reflect', 0) for b in target['buffs'] if b['type'] in ['block_all', 'invincible_counter']), 0)
                     actor['hp'] = max(0, actor['hp'] - math.floor(dmg * reflect_val))
-                    if not actor['is_alive'] and actor['hp'] <= 0:
+                    if actor['hp'] <= 0:
                         actor['is_alive'] = False
                     log.append(f"{actor['name']} menyerang {target['name']} tapi diblok! {math.floor(dmg * reflect_val)} damage balik ke {actor['name']}.")
                 else:
-                    # undying check
                     undying = any(b['type'] == 'undying' for b in target['buffs'])
                     target['hp'] = max(1 if undying else 0, target['hp'] - dmg)
                     total_dmg += dmg
@@ -395,6 +418,16 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                 if target['hp'] <= 0:
                     target['is_alive'] = False
                     log.append(f"{target['name']} telah dikalahkan!")
+
+                # FIX: counter buff (Levi counter_stance) - serangan tetap kena tapi sebagian balik
+                if counter_buff and total_dmg > 0:
+                    reflect_dmg = math.floor(total_dmg * counter_buff.get('value', 0))
+                    if reflect_dmg > 0:
+                        actor['hp'] = max(0, actor['hp'] - reflect_dmg)
+                        log.append(f"{target['name']} counter! {reflect_dmg} damage balik ke {actor['name']}.")
+                        if actor['hp'] <= 0:
+                            actor['is_alive'] = False
+                            log.append(f"{actor['name']} telah dikalahkan!")
 
                 # lifesteal
                 if skill.get('lifesteal'):
@@ -407,6 +440,12 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                     drain_amt = math.floor(total_dmg * skill['drain'])
                     actor['hp'] = min(actor['max_hp'], actor['hp'] + drain_amt)
                     log.append(f"{actor['name']} drain +{drain_amt} HP.")
+
+                # FIX: self_heal for damage skills (e.g. Tanjiro water_surface_slash)
+                if skill.get('self_heal'):
+                    heal_amt = math.floor(actor['max_hp'] * skill['self_heal'])
+                    actor['hp'] = min(actor['max_hp'], actor['hp'] + heal_amt)
+                    log.append(f"{actor['name']} heal diri sendiri +{heal_amt} HP.")
 
                 # overflow damage
                 if skill.get('overflow_damage') and target['hp'] <= 0:
@@ -429,13 +468,13 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                             log.append(f"{target['name']} terkena {effect['type'].upper()}!")
                         elif effect['type'] == 'stun':
                             target['status_effects'].append({**effect})
-                            log.append(f"{target['name']} terkena STUN!")
+                            log.append(f"{target['name']} terkena STUN! Tidak bisa bertindak {effect.get('duration',1)} giliran.")
                         elif effect['type'] in ['defense_down', 'attack_down']:
                             target['buffs'].append({**effect})
                             log.append(f"{target['name']} stat turun!")
                         elif effect['type'] == 'skip_turn':
                             target['status_effects'].append({**effect})
-                            log.append(f"{target['name']} kehilangan giliran berikutnya!")
+                            log.append(f"{target['name']} kehilangan {effect.get('duration',1)} giliran!")
                         elif effect['type'] == 'permanent_stat_down':
                             target['buffs'].append({**effect})
                             log.append(f"{target['name']} stat turun permanen!")
@@ -444,7 +483,7 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                             log.append(f"{target['name']} tidak bisa di-heal!")
                         elif effect['type'] == 'slow':
                             target['status_effects'].append({**effect})
-                            log.append(f"{target['name']} terkena SLOW!")
+                            log.append(f"{target['name']} terkena SLOW! Hanya bisa pakai 1 skill.")
 
                 # dispel buffs
                 if skill.get('dispel'):
@@ -475,24 +514,38 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
         elif target_type == 'single_ally':
             alive = [c for c in p['chars'] if c['is_alive']]
             if target_char_id:
+                # FIX: pastikan target masih hidup, fallback ke ally pertama kalau sudah mati
                 t = next((c for c in alive if c['id'] == target_char_id), None)
                 targets = [t] if t else (alive[:1] if alive else [])
             else:
                 targets = alive[:1]
 
         for t in targets:
-            blocked = any(se['type'] == 'heal_block' for se in t['status_effects'])
             if not blocked:
                 t['hp'] = min(t['max_hp'], t['hp'] + heal_amt)
                 log.append(f"{actor['name']} heal {t['name']} +{heal_amt} HP.")
+                # FIX: heal_over_turns (Angela love_waves) - tambahkan efek heal bertahap
+                hot_turns = skill.get('heal_over_turns', 0)
+                if hot_turns > 0:
+                    hot_per_turn = math.floor(heal_amt * 0.5)  # tiap tick heal 50% dari heal_amt
+                    t['status_effects'].append({
+                        'type': 'heal_over_time',
+                        'value': hot_per_turn,
+                        'duration': hot_turns,
+                    })
+                    log.append(f"{t['name']} akan heal +{hot_per_turn} HP tiap giliran selama {hot_turns} giliran.")
             else:
                 log.append(f"{t['name']} tidak bisa di-heal!")
 
-        # cleanse
+        # cleanse — buang semua efek negatif
+        NEGATIVE_EFFECTS = ['burn', 'bleed', 'poison', 'stun', 'slow', 'skip_turn', 'attack_down', 'defense_down', 'heal_block']
         if skill.get('cleanse'):
             for t in targets:
-                t['status_effects'] = [se for se in t['status_effects'] if se.get('type') in ['heal_block']]
-                log.append(f"Status efek negatif {t['name']} dibersihkan!")
+                before = len(t['status_effects'])
+                t['status_effects'] = [se for se in t['status_effects'] if se.get('type') not in NEGATIVE_EFFECTS]
+                t['buffs'] = [b for b in t['buffs'] if b.get('type') not in ['attack_down', 'defense_down']]
+                if len(t['status_effects']) < before:
+                    log.append(f"Status efek negatif {t['name']} dibersihkan!")
 
         # shield
         effect = skill.get('effect')
@@ -521,6 +574,13 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
             for t in targets:
                 t['buffs'].append({**effect})
                 log.append(f"{t['name']} mendapat buff {effect['type']}!")
+
+        # FIX: ally_buff (e.g. Cyclops big_bang)
+        ally_buff = skill.get('ally_buff')
+        if ally_buff:
+            for t in [c for c in p['chars'] if c['is_alive']]:
+                t['buffs'].append({**ally_buff})
+            log.append(f"Semua ally mendapat buff {ally_buff['type']}!")
 
         # next skill boost
         if skill.get('next_skill_boost'):
@@ -552,10 +612,18 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                 t['status_effects'].append({**effect})
                 log.append(f"{t['name']} terkena {effect['type']}!")
 
-    # reset cards
+    # FIX: ally_buff juga berlaku untuk damage skills (e.g. Cyclops big_bang)
+    ally_buff = skill.get('ally_buff')
+    if ally_buff and stype == 'damage':
+        for t in [c for c in p['chars'] if c['is_alive']]:
+            t['buffs'].append({**ally_buff})
+        log.append(f"Semua ally mendapat buff {ally_buff['type']}!")
+
+    # reset cards — flag agar loop on_select_skills tahu cards sudah berubah
     if skill.get('reset_cards'):
         pool = build_card_pool(p['chars'])
         p['cards'] = draw_cards(pool)
+        p['cards_reset_this_turn'] = True
         log.append(f"Kartu {p['username']} direset!")
 
     return log
@@ -576,9 +644,17 @@ def tick_status_effects(chars):
                 if c['hp'] <= 0:
                     c['is_alive'] = False
                     log.append(f"{c['name']} telah dikalahkan!")
+            # FIX: heal_over_time (Angela love_waves)
+            elif setype == 'heal_over_time':
+                heal_val = se.get('value', 0)
+                c['hp'] = min(c['max_hp'], c['hp'] + heal_val)
+                log.append(f"{c['name']} +{heal_val} HP dari heal bertahap.")
             se['duration'] -= 1
             if se['duration'] > 0:
                 new_effects.append(se)
+            else:
+                if setype in ['stun', 'skip_turn']:
+                    log.append(f"{c['name']} sudah pulih dari efek {setype}.")
         for b in c['buffs']:
             if b.get('type') == 'permanent_stat_down':
                 new_buffs.append(b)
@@ -597,6 +673,27 @@ def check_winner(room):
             return 1 - i
     return None
 
+def get_max_actions(player):
+    """
+    Calculate max usable actions for a player this turn.
+    Considers stun/skip_turn/slow per character.
+    Returns a dict: {total_actions, stunned_char_ids, slowed_char_ids}
+    """
+    stunned_ids = set()
+    slowed_ids = set()
+    for c in player['chars']:
+        if not c['is_alive']:
+            continue
+        for se in c.get('status_effects', []):
+            if se['type'] in ['stun', 'skip_turn']:
+                stunned_ids.add(c['id'])
+            elif se['type'] == 'slow':
+                slowed_ids.add(c['id'])
+    return {
+        'stunned_char_ids': stunned_ids,
+        'slowed_char_ids': slowed_ids,
+    }
+
 # ─── SOCKET EVENTS ────────────────────────────────────────────────────────────
 
 from flask_socketio import disconnect
@@ -606,14 +703,12 @@ connected_users = {}  # sid -> user_id
 
 @socketio.on('connect')
 def on_connect():
-    # try flask-login first
     try:
         if current_user.is_authenticated:
             connected_users[request.sid] = current_user.id
             return
     except Exception:
         pass
-    # try session
     try:
         uid = flask_session.get('_user_id') or flask_session.get('user_id')
         if uid:
@@ -623,14 +718,28 @@ def on_connect():
 
 @socketio.on('auth')
 def on_auth(data):
-    # frontend sends this after login
     uid = data.get('user_id')
     if uid:
         connected_users[request.sid] = int(uid)
 
 @socketio.on('disconnect')
 def on_disconnect():
-    connected_users.pop(request.sid, None)
+    sid = request.sid
+    connected_users.pop(sid, None)
+    # cleanup: if a player disconnects mid-battle, notify opponent
+    for code, room in list(rooms.items()):
+        for i, p in enumerate(room['players']):
+            if p.get('sid') == sid and room['phase'] == 'battle':
+                opp_idx = 1 - i
+                if len(room['players']) > opp_idx:
+                    opp_sid = room['players'][opp_idx].get('sid')
+                    if opp_sid:
+                        socketio.emit('opponent_disconnected', {
+                            'message': f"{p['username']} terputus dari pertandingan."
+                        }, room=opp_sid)
+                room['phase'] = 'ended'
+                rooms.pop(code, None)
+                break
 
 @socketio.on('rejoin_battle')
 def on_rejoin_battle(data):
@@ -642,7 +751,6 @@ def on_rejoin_battle(data):
         emit('error', {'message': 'Room tidak ditemukan.'})
         return
     room = rooms[code]
-    # update sid for this player
     pidx = next((i for i, p in enumerate(room['players']) if p['user_id'] == user.id), None)
     if pidx is None:
         return
@@ -652,18 +760,13 @@ def on_rejoin_battle(data):
         'log': [],
         'room': sanitize_room(room, pidx),
         'turn_username': room['players'][room['turn']]['username'],
+        'your_player_index': pidx,
     })
 
 def get_socket_user():
+    """Get user purely from connected_users dict — no current_user fallback."""
     uid = connected_users.get(request.sid)
     if not uid:
-        # fallback: try current_user
-        try:
-            u = current_user._get_current_object()
-            if u.is_authenticated:
-                return u
-        except Exception:
-            pass
         return None
     return User.query.get(uid)
 
@@ -771,43 +874,87 @@ def on_gbk_choice(data):
                 'opp_choice': choices_snapshot[1-i],
                 'first': room['turn'],
                 'room': sanitize_room(room, i),
+                'your_player_index': i,
             }, room=room['players'][i]['sid'])
 
 @socketio.on('select_skills')
 def on_select_skills(data):
     user = get_socket_user()
     if not user:
+        emit('error', {'message': 'Silakan login dulu.'})
         return
     code = data.get('code')
-    selected = data.get('selected', [])  # list of {card_index, target_char_id}
+    selected = data.get('selected', [])  # list of {card_index, target_char_id} or {is_skip: true}
     if code not in rooms:
+        emit('error', {'message': 'Room tidak ditemukan.'})
         return
     room = rooms[code]
     if room['phase'] != 'battle':
+        emit('error', {'message': 'Battle belum dimulai atau sudah selesai.'})
         return
     pidx = next((i for i, p in enumerate(room['players']) if p['user_id'] == user.id), None)
     if pidx is None or pidx != room['turn']:
         emit('error', {'message': 'Bukan giliran kamu.'})
         return
     if len(selected) != 3:
-        emit('error', {'message': 'Pilih tepat 3 kartu.'})
+        emit('error', {'message': 'Pilih tepat 3 aksi (skill atau skip).'})
         return
 
     p = room['players'][pidx]
     cards = p['cards']
     log = []
+    p['cards_reset_this_turn'] = False  # reset flag
+
+    # Get stun/slow info for this player
+    action_info = get_max_actions(p)
+    stunned_ids = action_info['stunned_char_ids']
+    slowed_ids = action_info['slowed_char_ids']
+
+    # Track how many skills each character uses this turn (for slow)
+    char_skill_count = {}
 
     for sel in selected:
+        # Skip action
+        if sel.get('is_skip'):
+            log.append(f"{p['username']} melewati 1 aksi.")
+            continue
+
         cidx = sel.get('card_index')
         target_id = sel.get('target_char_id')
+
         if cidx is None or cidx >= len(cards):
             continue
+
         card = cards[cidx]
-        char_idx = next((i for i, c in enumerate(p['chars']) if c['id'] == card['char_id']), None)
+        char_id = card['char_id']
+        char_idx = next((i for i, c in enumerate(p['chars']) if c['id'] == char_id), None)
         if char_idx is None:
             continue
+
+        actor = p['chars'][char_idx]
+
+        # FIX: Block stunned characters
+        if char_id in stunned_ids:
+            log.append(f"{actor['name']} masih kena stun, aksi dibatalkan!")
+            continue
+
+        # FIX: Slow - only 1 skill allowed per character per turn
+        if char_id in slowed_ids:
+            char_skill_count[char_id] = char_skill_count.get(char_id, 0) + 1
+            if char_skill_count[char_id] > 1:
+                log.append(f"{actor['name']} kena slow, hanya bisa pakai 1 skill per giliran!")
+                continue
+
         skill_log = apply_skill(room, pidx, char_idx, card['skill'], target_id)
         log.extend(skill_log)
+
+        # FIX: kalau reset_cards terjadi, hentikan eksekusi sisa skill
+        # karena card_index yang dikirim frontend sudah tidak valid
+        if p.get('cards_reset_this_turn'):
+            p['cards_reset_this_turn'] = False
+            log.append(f"Sisa aksi dibatalkan karena kartu sudah direset.")
+            break
+
         winner = check_winner(room)
         if winner is not None:
             break
@@ -884,12 +1031,15 @@ def sanitize_room(room, player_idx):
     players_out = []
     current_turn = room['turn']
     for i, p in enumerate(room['players']):
-        # Only show cards to the player whose turn it is AND it's their own cards
         show_cards = (i == player_idx) and (player_idx == current_turn)
+        # Include stun info so frontend can show ❌ overlay
+        action_info = get_max_actions(p) if i == player_idx else {'stunned_char_ids': set(), 'slowed_char_ids': set()}
         players_out.append({
             'username': p['username'],
             'chars': p['chars'],
             'cards': p['cards'] if show_cards else [{'char_name': '?', 'skill': {'name': '?'}} for _ in p['cards']],
+            'stunned_char_ids': list(action_info['stunned_char_ids']),
+            'slowed_char_ids': list(action_info['slowed_char_ids']),
         })
     return {
         'players': players_out,

@@ -132,6 +132,7 @@
   .skill-item .sname { font-weight: 700; font-size: 0.9rem; margin-bottom: 3px; }
   .skill-item .sdesc { font-size: 0.8rem; color: var(--muted); }
 
+  /* ─── BATTLE SCREEN ─── */
   #battle-screen { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 300; overflow-y: auto; padding: 20px; }
   .battle-header { text-align: center; margin-bottom: 20px; }
   .battle-header h2 { font-size: 1.5rem; color: var(--accent); }
@@ -147,16 +148,70 @@
   .hp-bar { background: var(--green); border-radius: 4px; height: 8px; transition: width 0.5s; }
   .hp-text { font-size: 0.7rem; color: var(--muted); }
 
+  /* ─── CARDS ─── */
   .cards-section { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-  .cards-section h4 { margin-bottom: 12px; font-size: 0.9rem; color: var(--muted); }
-  .cards-grid { display: flex; gap: 8px; flex-wrap: wrap; }
-  .skill-card { background: var(--card2); border-radius: 10px; padding: 10px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; width: 140px; flex-shrink: 0; }
-  .skill-card:hover { border-color: var(--blue); }
+  .cards-section h4 { margin-bottom: 6px; font-size: 0.9rem; color: var(--muted); }
+  .cards-hint { font-size: 0.78rem; color: var(--muted); margin-bottom: 12px; }
+  .cards-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+
+  /* Normal skill card */
+  .skill-card { background: var(--card2); border-radius: 10px; padding: 10px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; width: 140px; flex-shrink: 0; position: relative; }
+  .skill-card:hover:not(.disabled):not(.stunned-card) { border-color: var(--blue); }
   .skill-card.selected-card { border-color: var(--accent); background: rgba(233,69,96,0.15); }
   .skill-card.disabled { opacity: 0.4; cursor: not-allowed; }
   .skill-card .sc-char { font-size: 0.7rem; color: var(--muted); margin-bottom: 2px; }
   .skill-card .sc-name { font-size: 0.85rem; font-weight: 700; margin-bottom: 4px; }
   .skill-card .sc-desc { font-size: 0.7rem; color: var(--muted); line-height: 1.3; }
+
+  /* Stunned card style */
+  .stunned-card {
+    border-color: #ff4444 !important;
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .stun-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.45);
+    border-radius: 8px;
+    font-size: 1.6rem;
+    z-index: 2;
+    pointer-events: none;
+    gap: 2px;
+  }
+  .stun-overlay span { font-size: 0.65rem; color: #ff6666; font-weight: 700; letter-spacing: 0.5px; }
+
+  /* Slow card style */
+  .slowed-card {
+    border-color: #2196f3 !important;
+    opacity: 0.75;
+  }
+  .slow-overlay {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 0.7rem;
+    background: rgba(33,150,243,0.7);
+    border-radius: 4px;
+    padding: 1px 5px;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* Skip card */
+  .skip-card {
+    border-color: #555;
+    background: rgba(255,255,255,0.03);
+    opacity: 0.85;
+  }
+  .skip-card:hover:not(.disabled) { border-color: var(--orange) !important; opacity: 1; }
+  .skip-card.selected-card { border-color: var(--orange) !important; background: rgba(255,152,0,0.15) !important; }
+  .skip-card .sc-char { color: var(--orange); }
+  .skip-card .sc-name { color: var(--orange); }
 
   .target-select { background: var(--card2); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
   .target-select h5 { font-size: 0.85rem; margin-bottom: 8px; color: var(--muted); }
@@ -164,7 +219,12 @@
   .btn-target { padding: 6px 12px; border: 1px solid #444; border-radius: 6px; background: var(--card); color: var(--text); cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
   .btn-target:hover, .btn-target.chosen { border-color: var(--accent); color: var(--accent); background: rgba(233,69,96,0.1); }
 
-  .btn-confirm-skills { width: 100%; padding: 14px; background: var(--accent); border: none; border-radius: 10px; color: white; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 8px; }
+  /* Selected actions summary */
+  .selected-summary { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; min-height: 28px; }
+  .summary-chip { padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; background: rgba(233,69,96,0.2); border: 1px solid var(--accent); color: var(--accent); }
+  .summary-chip.skip { background: rgba(255,152,0,0.2); border-color: var(--orange); color: var(--orange); }
+
+  .btn-confirm-skills { width: 100%; padding: 14px; background: var(--accent); border: none; border-radius: 10px; color: white; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 8px; transition: opacity 0.2s; }
   .btn-confirm-skills:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .battle-log { background: var(--card); border-radius: 12px; padding: 16px; max-height: 240px; overflow-y: auto; }
@@ -199,6 +259,9 @@
 
   .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
   .empty-state h3 { font-size: 1.3rem; margin-bottom: 8px; }
+
+  /* Disconnect notice */
+  .disconnect-notice { background: rgba(233,69,96,0.15); border: 1px solid var(--accent); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; font-size: 0.9rem; color: var(--accent); text-align: center; }
 
   @media (max-width: 600px) {
     .battle-teams { grid-template-columns: 1fr; }
@@ -289,6 +352,7 @@
   <div id="battle-content"></div>
 </div>
 
+<!-- MODAL CREATE ROOM -->
 <div class="modal-overlay" id="modal-create">
   <div class="modal">
     <h3>🗡️ Buat Room</h3>
@@ -302,6 +366,7 @@
   </div>
 </div>
 
+<!-- MODAL JOIN ROOM -->
 <div class="modal-overlay" id="modal-join">
   <div class="modal">
     <h3>🛡️ Join Room</h3>
@@ -316,6 +381,7 @@
   </div>
 </div>
 
+<!-- MODAL CHAR DETAIL -->
 <div class="modal-overlay" id="modal-char-detail">
   <div class="modal">
     <div id="char-detail-content"></div>
@@ -330,11 +396,11 @@ const socket = io();
 let userData = null;
 let currentRoom = null;
 let myPlayerIndex = null;
-let selectedCards = [];
+let selectedCards = []; // [{card_index, target_char_id} | {is_skip: true}]
 let pendingTargetCard = null;
 let authMode = 'login';
 
-// ─── AUTH ───────────────────────────────────────────────────────────────────
+// ─── AUTH ────────────────────────────────────────────────────────────────────
 
 function switchTab(mode) {
   authMode = mode;
@@ -439,6 +505,8 @@ function showCharDetail(charId) {
   openModal('modal-char-detail');
 }
 
+// ─── GACHA ────────────────────────────────────────────────────────────────────
+
 async function doGacha(count) {
   const res = await fetch('/gacha', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({count})});
   const data = await res.json();
@@ -458,6 +526,8 @@ async function doGacha(count) {
     `).join('') + '</div>';
   await loadUserData();
 }
+
+// ─── TEAM SELECT ──────────────────────────────────────────────────────────────
 
 let createTeam = [];
 let joinTeam = [];
@@ -543,6 +613,7 @@ socket.on('battle_start', (data) => {
   sessionStorage.setItem('myPlayerIndex', myPlayerIndex);
   sessionStorage.setItem('roomCode', window._roomCode || '');
   selectedCards = [];
+  pendingTargetCard = null;
   renderBattle();
   showGBK();
 });
@@ -579,11 +650,22 @@ socket.on('battle_ended', (data) => {
   renderBattleEnd(data.you_win, data.winner, data.log);
 });
 
+socket.on('opponent_disconnected', (data) => {
+  const content = document.getElementById('battle-content');
+  if (content) {
+    const notice = document.createElement('div');
+    notice.className = 'disconnect-notice';
+    notice.textContent = data.message;
+    content.prepend(notice);
+    setTimeout(() => exitBattle(), 3000);
+  }
+});
+
 socket.on('error', (data) => {
   alert(data.message);
 });
 
-// ─── BATTLE RENDER ───────────────────────────────────────────────────────────
+// ─── BATTLE RENDER ────────────────────────────────────────────────────────────
 
 function renderBattle() {
   if (!currentRoom) return;
@@ -610,7 +692,7 @@ function renderBattle() {
   `;
 
   if (isMyTurn && me.cards && me.cards.length > 0 && me.cards[0].skill && me.cards[0].skill.name !== '?') {
-    html += renderCardSection(me.cards, opp.chars);
+    html += renderCardSection(me.cards, me, opp.chars);
   }
 
   html += renderBattleLog(room.log);
@@ -620,10 +702,13 @@ function renderBattle() {
 function renderBattleChar(c) {
   const hpPct = Math.max(0, Math.round((c.hp / c.max_hp) * 100));
   const hpColor = hpPct > 50 ? 'var(--green)' : hpPct > 25 ? 'var(--orange)' : 'var(--accent)';
-  const effects = [...(c.status_effects||[]), ...(c.buffs||[])].map(e => {
-    const icons = {burn:'🔥',bleed:'🩸',poison:'☠️',stun:'⚡',slow:'🐢',shield:'🛡️',attack_up:'⬆️',defense_up:'🔰',counter:'↩️',undying:'💫',heal_block:'🚫',block_all:'🛡️',all_stats_up:'✨'};
-    return icons[e.type] || '';
-  }).join('');
+  const effectIcons = {
+    burn:'🔥', bleed:'🩸', poison:'☠️', stun:'⚡', slow:'🐢',
+    shield:'🛡️', attack_up:'⬆️', defense_up:'🔰', counter:'↩️',
+    undying:'💫', heal_block:'🚫', block_all:'🛡️', all_stats_up:'✨',
+    invincible_counter:'🛡️✨', skip_turn:'⏭️'
+  };
+  const effects = [...(c.status_effects||[]), ...(c.buffs||[])].map(e => effectIcons[e.type] || '').join('');
   return `
     <div class="battle-char ${!c.is_alive ? 'dead' : ''}">
       <img src="${charImgSrc(c.image)}" onerror="this.style.background='#333'" alt="${c.name}"/>
@@ -636,49 +721,146 @@ function renderBattleChar(c) {
   `;
 }
 
-function renderCardSection(cards, oppChars) {
+function renderCardSection(cards, mePlayer, oppChars) {
   const aliveOpp = oppChars.filter(c => c.is_alive);
-  let html = `<div class="cards-section"><h4>🃏 Kartu Kamu (pilih 3)</h4><div class="cards-grid">`;
+  const stunned = new Set(mePlayer.stunned_char_ids || []);
+  const slowed = new Set(mePlayer.slowed_char_ids || []);
+
+  // Track how many times each char is selected (for slow limit UI)
+  const charSelectCount = {};
+  selectedCards.forEach(s => {
+    if (!s.is_skip && s.card_index !== undefined) {
+      const card = cards[s.card_index];
+      if (card) charSelectCount[card.char_id] = (charSelectCount[card.char_id] || 0) + 1;
+    }
+  });
+
+  let html = `<div class="cards-section">
+    <h4>🃏 Kartu Kamu (pilih 3 aksi)</h4>
+    <p class="cards-hint">❌ = stun (tidak bisa dipakai) · 🐢 = slow (maks 1x per giliran) · ⏭️ = skip aksi</p>
+    <div class="cards-grid">`;
+
   cards.forEach((card, i) => {
-    const isSelected = selectedCards.find(s => s.card_index === i);
-    const disabled = !isSelected && selectedCards.length >= 3;
+    const isSelected = selectedCards.some(s => !s.is_skip && s.card_index === i);
+    const isStunned = stunned.has(card.char_id);
+    const isSlowed = slowed.has(card.char_id);
+
+    // For slowed chars: if this card's char already has 1 selected, block more
+    const slowBlocked = isSlowed && !isSelected && (charSelectCount[card.char_id] || 0) >= 1;
+    const fullDisabled = !isSelected && selectedCards.length >= 3;
+    const isDisabled = isStunned || slowBlocked || (fullDisabled && !isSelected);
+
+    let cardClass = 'skill-card';
+    if (isSelected) cardClass += ' selected-card';
+    if (isStunned) cardClass += ' stunned-card';
+    else if (isSlowed) cardClass += ' slowed-card';
+    if (isDisabled && !isSelected) cardClass += ' disabled';
+
+    const overlayHtml = isStunned
+      ? `<div class="stun-overlay">❌<span>STUN</span></div>`
+      : (isSlowed ? `<div class="slow-overlay">🐢 slow</div>` : '');
+
     html += `
-      <div class="skill-card ${isSelected ? 'selected-card' : ''} ${disabled ? 'disabled' : ''}" onclick="toggleCard(${i})">
+      <div class="${cardClass}" onclick="${(!isStunned && !slowBlocked) ? `toggleCard(${i})` : ''}">
+        ${overlayHtml}
         <div class="sc-char">${card.char_name || card.char_id}</div>
         <div class="sc-name">${card.skill?.name || '?'}</div>
         <div class="sc-desc">${card.skill?.description || ''}</div>
       </div>
     `;
   });
+
+  // Skip buttons — always 3 available as a pool, show how many are selected
+  const skipCount = selectedCards.filter(s => s.is_skip).length;
+  const canAddSkip = selectedCards.length < 3;
+  for (let i = 0; i < 3; i++) {
+    const isThisSelected = skipCount > i;
+    const isDisabled = !isThisSelected && !canAddSkip;
+    html += `
+      <div class="skill-card skip-card ${isThisSelected ? 'selected-card' : ''} ${isDisabled ? 'disabled' : ''}"
+           onclick="toggleSkip(${i})">
+        <div class="sc-char">⏭️</div>
+        <div class="sc-name">Skip</div>
+        <div class="sc-desc">Lewati 1 aksi giliran ini</div>
+      </div>
+    `;
+  }
+
   html += `</div>`;
+
+  // Selected summary chips
+  html += `<div class="selected-summary">`;
+  selectedCards.forEach((s, idx) => {
+    if (s.is_skip) {
+      html += `<span class="summary-chip skip" onclick="removeSelected(${idx})" style="cursor:pointer">⏭️ Skip ✕</span>`;
+    } else if (s.card_index !== undefined) {
+      const card = cards[s.card_index];
+      const tName = s.target_char_id ? ` → ${s.target_char_id}` : '';
+      html += `<span class="summary-chip" onclick="removeSelected(${idx})" style="cursor:pointer">${card?.skill?.name || '?'}${tName} ✕</span>`;
+    }
+  });
+  html += `</div>`;
+
+  // Target selector
   if (pendingTargetCard !== null && aliveOpp.length > 1) {
     const card = cards[pendingTargetCard];
     if (card && card.skill && card.skill.target === 'single_enemy') {
-      html += `<div class="target-select"><h5>Pilih target untuk ${card.skill.name}:</h5><div class="target-btns">`;
-      aliveOpp.forEach(c => { html += `<button class="btn-target" onclick="setTarget('${c.id}')">${c.name}</button>`; });
+      html += `<div class="target-select">
+        <h5>🎯 Pilih target untuk <strong>${card.skill.name}</strong>:</h5>
+        <div class="target-btns">`;
+      aliveOpp.forEach(c => {
+        const isCurrent = selectedCards.find(s => !s.is_skip && s.card_index === pendingTargetCard)?.target_char_id === c.id;
+        html += `<button class="btn-target ${isCurrent ? 'chosen' : ''}" onclick="setTarget('${c.id}')">${c.name}</button>`;
+      });
       html += `</div></div>`;
     }
   }
-  html += `<button class="btn-confirm-skills" ${selectedCards.length < 3 ? 'disabled' : ''} onclick="confirmSkills()">✅ Eksekusi ${selectedCards.length}/3 Skill</button></div>`;
+
+  html += `<button class="btn-confirm-skills" ${selectedCards.length < 3 ? 'disabled' : ''} onclick="confirmSkills()">
+    ✅ Eksekusi ${selectedCards.length}/3 Aksi
+  </button></div>`;
+
   return html;
 }
 
 function toggleCard(idx) {
-  const existing = selectedCards.findIndex(s => s.card_index === idx);
+  const existing = selectedCards.findIndex(s => !s.is_skip && s.card_index === idx);
   if (existing >= 0) {
     selectedCards.splice(existing, 1);
-    pendingTargetCard = null;
+    if (pendingTargetCard === idx) pendingTargetCard = null;
   } else if (selectedCards.length < 3) {
     const card = currentRoom.players[myPlayerIndex].cards[idx];
     const needsTarget = card.skill && card.skill.target === 'single_enemy';
-    selectedCards.push({card_index: idx, target_char_id: null});
-    if (needsTarget) pendingTargetCard = idx;
+    const aliveOpp = currentRoom.players[1 - myPlayerIndex].chars.filter(c => c.is_alive);
+    // Auto-target if only 1 enemy alive
+    const autoTarget = aliveOpp.length === 1 ? aliveOpp[0].id : null;
+    selectedCards.push({card_index: idx, target_char_id: autoTarget});
+    if (needsTarget && !autoTarget) pendingTargetCard = idx;
   }
   renderBattle();
 }
 
+function toggleSkip(i) {
+  const skipCount = selectedCards.filter(s => s.is_skip).length;
+  if (skipCount > i) {
+    // Remove last skip
+    const idx = selectedCards.map((s,i) => s.is_skip ? i : -1).filter(x => x >= 0).pop();
+    if (idx !== undefined) selectedCards.splice(idx, 1);
+  } else if (selectedCards.length < 3) {
+    selectedCards.push({is_skip: true});
+  }
+  renderBattle();
+}
+
+function removeSelected(idx) {
+  const sel = selectedCards[idx];
+  if (sel && !sel.is_skip && pendingTargetCard === sel.card_index) pendingTargetCard = null;
+  selectedCards.splice(idx, 1);
+  renderBattle();
+}
+
 function setTarget(charId) {
-  const sel = selectedCards.find(s => s.card_index === pendingTargetCard);
+  const sel = selectedCards.find(s => !s.is_skip && s.card_index === pendingTargetCard);
   if (sel) sel.target_char_id = charId;
   pendingTargetCard = null;
   renderBattle();
@@ -687,6 +869,9 @@ function setTarget(charId) {
 function confirmSkills() {
   if (selectedCards.length !== 3 || !currentRoom) return;
   socket.emit('select_skills', {code: window._roomCode, selected: selectedCards});
+  // Disable button to prevent double send
+  const btn = document.querySelector('.btn-confirm-skills');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Mengirim...'; }
 }
 
 function renderBattleLog(log) {
@@ -757,6 +942,7 @@ function exitBattle() {
   currentRoom = null;
   myPlayerIndex = null;
   selectedCards = [];
+  pendingTargetCard = null;
   window._roomCode = null;
   sessionStorage.removeItem('myPlayerIndex');
   sessionStorage.removeItem('roomCode');
@@ -769,6 +955,7 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
 });
 
+// Auto-login check on load
 (async () => {
   const res = await fetch('/me');
   if (res.ok) {
