@@ -584,10 +584,28 @@ function confirmJoinRoom() {
 // ─── SOCKET EVENTS ────────────────────────────────────────────────────────────
 
 socket.on('connect', () => {
+  // hapus notice reconnect kalau ada
+  const notice = document.getElementById('reconnect-notice');
+  if (notice) notice.remove();
+
   if (userData) {
     socket.emit('auth', {user_id: userData.id});
     if (currentRoom && window._roomCode) {
       socket.emit('rejoin_battle', {code: window._roomCode});
+    }
+  }
+});
+
+socket.on('disconnect', (reason) => {
+  console.log('Disconnected:', reason);
+  if (currentRoom && window._roomCode) {
+    const content = document.getElementById('battle-content');
+    if (content && !document.getElementById('reconnect-notice')) {
+      const notice = document.createElement('div');
+      notice.className = 'disconnect-notice';
+      notice.id = 'reconnect-notice';
+      notice.textContent = '⚠️ Koneksi terputus, mencoba reconnect...';
+      content.prepend(notice);
     }
   }
 });
@@ -867,13 +885,13 @@ function setTarget(charId) {
 }
 
 function confirmSkills() {
-    if (selectedCards.length !== 3 || !currentRoom) return;
-    const toSend = [...selectedCards]; // copy dulu sebelum dikosongkan
-    selectedCards = [];
-    pendingTargetCard = null;
-    socket.emit('select_skills', {code: window._roomCode, selected: toSend});
-    const btn = document.querySelector('.btn-confirm-skills');
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Mengirim...'; }
+  if (selectedCards.length !== 3 || !currentRoom) return;
+  const toSend = [...selectedCards]; // copy dulu sebelum dikosongkan
+  selectedCards = [];
+  pendingTargetCard = null;
+  socket.emit('select_skills', {code: window._roomCode, selected: toSend});
+  const btn = document.querySelector('.btn-confirm-skills');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Mengirim...'; }
 }
 
 function renderBattleLog(log) {

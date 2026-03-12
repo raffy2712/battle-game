@@ -15,7 +15,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading", logger=True, engineio_logger=True, manage_session=False)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading", logger=True, engineio_logger=True, manage_session=False, ping_timeout=60, ping_interval=25)
 login_manager = LoginManager(app)
 login_manager.login_view = 'index'
 
@@ -959,9 +959,6 @@ def on_select_skills(data):
         if winner is not None:
             break
 
-    # tick status effects for acting player's chars after their turn
-    log.extend(tick_status_effects(p['chars']))
-
     winner = check_winner(room)
     if winner is not None:
         room['phase'] = 'ended'
@@ -973,13 +970,14 @@ def on_select_skills(data):
     room['turn'] = 1 - pidx
     next_p = room['players'][room['turn']]
 
-    # refresh NEXT player's cards
-    pool = build_card_pool(next_p['chars'])
-    next_p['cards'] = draw_cards(pool)
-
-    # tick status effects for next player chars at start of their turn
+    # tick status effects di AWAL giliran player berikutnya
+    # ini yang benar — stun/burn/dll baru berkurang saat giliran si pemilik tiba
     tick_log = tick_status_effects(next_p['chars'])
     log.extend(tick_log)
+
+    # refresh kartu player berikutnya (setelah tick, karena stun bisa mempengaruhi pool)
+    pool = build_card_pool(next_p['chars'])
+    next_p['cards'] = draw_cards(pool)
 
     winner = check_winner(room)
     if winner is not None:
