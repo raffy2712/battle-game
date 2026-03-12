@@ -23,7 +23,6 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
 
-  /* AUTH */
   #auth-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 100%); }
   .auth-box { background: var(--card); border-radius: 16px; padding: 40px; width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
   .auth-box h1 { text-align: center; font-size: 2rem; margin-bottom: 8px; color: var(--accent); }
@@ -37,7 +36,6 @@
   .btn-primary:hover { opacity: 0.85; }
   .auth-error { color: var(--accent); font-size: 0.85rem; margin-top: 8px; text-align: center; }
 
-  /* MAIN APP */
   #app { display: none; flex-direction: column; min-height: 100vh; }
   .navbar { background: var(--card); padding: 0 20px; display: flex; align-items: center; justify-content: space-between; height: 60px; border-bottom: 1px solid #222; position: sticky; top: 0; z-index: 100; }
   .navbar-brand { font-size: 1.3rem; font-weight: 800; color: var(--accent); }
@@ -53,7 +51,6 @@
   .page { display: none; padding: 24px 20px; max-width: 1000px; margin: 0 auto; width: 100%; }
   .page.active { display: block; }
 
-  /* HOME PAGE */
   .profile-card { background: var(--card); border-radius: 16px; padding: 28px; margin-bottom: 24px; display: flex; align-items: center; gap: 24px; }
   .profile-avatar { width: 72px; height: 72px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 800; flex-shrink: 0; }
   .profile-info h2 { font-size: 1.5rem; margin-bottom: 4px; }
@@ -70,7 +67,6 @@
   .btn-join { background: var(--accent2); color: white; border: 1px solid var(--accent); }
   .btn-battle:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
 
-  /* MODAL */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; align-items: center; justify-content: center; }
   .modal-overlay.open { display: flex; }
   .modal { background: var(--card); border-radius: 16px; padding: 32px; width: 90%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
@@ -81,13 +77,11 @@
   .btn-confirm { flex: 1; padding: 12px; background: var(--accent); border: none; border-radius: 8px; color: white; font-weight: 700; cursor: pointer; }
   .btn-cancel { flex: 1; padding: 12px; background: var(--card2); border: 1px solid #444; border-radius: 8px; color: var(--muted); cursor: pointer; }
 
-  /* TEAM SELECT */
   .team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
-  .team-card { background: var(--card2); border-radius: 10px; padding: 12px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; text-align: center; position: relative; }
+  .team-card { background: var(--card2); border-radius: 10px; padding: 12px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; text-align: center; }
   .team-card.selected { border-color: var(--accent); background: rgba(233,69,96,0.15); }
-  .team-card img { width: 70px; height: 70px; object-fit: cover; border-radius: 8px; margin-bottom: 6px; }
+  .team-card img { width: 70px; height: 70px; object-fit: cover; border-radius: 8px; margin-bottom: 6px; background: #333; }
   .team-card .char-name { font-size: 0.8rem; font-weight: 600; }
-  .team-card .char-grade { font-size: 0.75rem; color: var(--muted); }
   .selected-count { color: var(--muted); font-size: 0.9rem; margin-bottom: 12px; }
   .grade-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
   .grade-C { background: #555; color: #fff; }
@@ -96,7 +90,6 @@
   .grade-S { background: #ff9800; color: #fff; }
   .grade-SS { background: linear-gradient(135deg, #ffd700, #ff4500); color: #fff; }
 
-  /* GACHA PAGE */
   .gacha-banner { background: linear-gradient(135deg, var(--accent2), var(--accent)); border-radius: 16px; padding: 40px; text-align: center; margin-bottom: 24px; }
   .gacha-banner h2 { font-size: 2rem; font-weight: 800; margin-bottom: 8px; }
   .gacha-banner p { color: rgba(255,255,255,0.8); }
@@ -112,23 +105,21 @@
   .gacha-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
   .result-card { background: var(--card); border-radius: 12px; padding: 14px; text-align: center; animation: popIn 0.4s ease; }
   @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-  .result-card img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; }
+  .result-card img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; background: #333; }
   .result-card .rname { font-size: 0.8rem; font-weight: 600; }
   .result-new { border: 2px solid var(--gold); }
 
-  /* CHARACTERS PAGE */
   .char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
   .char-card { background: var(--card); border-radius: 14px; overflow: hidden; cursor: pointer; transition: transform 0.2s; }
   .char-card:hover { transform: translateY(-4px); }
-  .char-card-img { width: 100%; height: 160px; object-fit: cover; }
+  .char-card-img { width: 100%; height: 160px; object-fit: cover; background: #333; }
   .char-card-body { padding: 12px; }
   .char-card-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
   .char-card-origin { font-size: 0.75rem; color: var(--muted); margin-bottom: 8px; }
   .char-card-stars { color: var(--gold); font-size: 0.8rem; }
 
-  /* CHAR DETAIL MODAL */
   .char-detail { display: flex; gap: 20px; flex-wrap: wrap; }
-  .char-detail-img { width: 140px; height: 140px; object-fit: cover; border-radius: 12px; flex-shrink: 0; }
+  .char-detail-img { width: 140px; height: 140px; object-fit: cover; border-radius: 12px; flex-shrink: 0; background: #333; }
   .char-detail-info { flex: 1; min-width: 200px; }
   .char-detail-info h3 { font-size: 1.4rem; margin-bottom: 4px; }
   .char-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 16px 0; }
@@ -141,7 +132,6 @@
   .skill-item .sname { font-weight: 700; font-size: 0.9rem; margin-bottom: 3px; }
   .skill-item .sdesc { font-size: 0.8rem; color: var(--muted); }
 
-  /* BATTLE SCREEN */
   #battle-screen { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 300; overflow-y: auto; padding: 20px; }
   .battle-header { text-align: center; margin-bottom: 20px; }
   .battle-header h2 { font-size: 1.5rem; color: var(--accent); }
@@ -150,15 +140,13 @@
   .battle-team h4 { font-size: 0.9rem; color: var(--muted); margin-bottom: 12px; }
   .battle-char { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; opacity: 1; transition: opacity 0.3s; }
   .battle-char.dead { opacity: 0.3; }
-  .battle-char img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+  .battle-char img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #333; }
   .battle-char-info { flex: 1; min-width: 0; }
   .battle-char-name { font-size: 0.85rem; font-weight: 600; }
   .hp-bar-bg { background: #333; border-radius: 4px; height: 8px; margin-top: 4px; }
   .hp-bar { background: var(--green); border-radius: 4px; height: 8px; transition: width 0.5s; }
   .hp-text { font-size: 0.7rem; color: var(--muted); }
-  .status-icons { font-size: 0.7rem; color: var(--orange); }
 
-  /* CARDS */
   .cards-section { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
   .cards-section h4 { margin-bottom: 12px; font-size: 0.9rem; color: var(--muted); }
   .cards-grid { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -170,7 +158,6 @@
   .skill-card .sc-name { font-size: 0.85rem; font-weight: 700; margin-bottom: 4px; }
   .skill-card .sc-desc { font-size: 0.7rem; color: var(--muted); line-height: 1.3; }
 
-  /* TARGET SELECT */
   .target-select { background: var(--card2); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
   .target-select h5 { font-size: 0.85rem; margin-bottom: 8px; color: var(--muted); }
   .target-btns { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -180,7 +167,6 @@
   .btn-confirm-skills { width: 100%; padding: 14px; background: var(--accent); border: none; border-radius: 10px; color: white; font-size: 1rem; font-weight: 700; cursor: pointer; margin-top: 8px; }
   .btn-confirm-skills:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  /* BATTLE LOG */
   .battle-log { background: var(--card); border-radius: 12px; padding: 16px; max-height: 240px; overflow-y: auto; }
   .battle-log h4 { font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; }
   .log-entry { font-size: 0.82rem; padding: 3px 0; border-bottom: 1px solid #1a1a2e; color: var(--text); }
@@ -192,25 +178,21 @@
   .log-separator.opp-turn { color: var(--blue); }
   .log-separator.opp-turn::before, .log-separator.opp-turn::after { background: var(--blue); opacity: 0.4; }
 
-  /* GBK */
   .gbk-modal { text-align: center; }
   .gbk-buttons { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
   .btn-gbk { width: 80px; height: 80px; border: none; border-radius: 50%; font-size: 2.5rem; cursor: pointer; transition: transform 0.2s; background: var(--card2); }
   .btn-gbk:hover { transform: scale(1.1); }
   .btn-gbk.chosen { border: 3px solid var(--accent); }
 
-  /* WAITING */
   .waiting-box { text-align: center; padding: 40px; }
   .room-code { font-size: 3rem; font-weight: 800; color: var(--gold); letter-spacing: 8px; margin: 20px 0; }
   .waiting-hint { color: var(--muted); font-size: 0.9rem; }
 
-  /* BATTLE END */
   .battle-end { text-align: center; padding: 40px; }
   .battle-end h2 { font-size: 2.5rem; font-weight: 800; margin-bottom: 16px; }
   .win-text { color: var(--gold); }
   .lose-text { color: var(--accent); }
 
-  /* TURN INDICATOR */
   .turn-indicator { text-align: center; padding: 10px; background: var(--card2); border-radius: 8px; margin-bottom: 12px; font-weight: 700; }
   .turn-indicator.your-turn { background: rgba(233,69,96,0.2); color: var(--accent); }
   .turn-indicator.opp-turn { background: rgba(33,150,243,0.2); color: var(--blue); }
@@ -227,7 +209,6 @@
 </head>
 <body>
 
-<!-- AUTH -->
 <div id="auth-screen">
   <div class="auth-box">
     <h1>⚔️ Battle Arena</h1>
@@ -243,7 +224,6 @@
   </div>
 </div>
 
-<!-- MAIN APP -->
 <div id="app">
   <div class="navbar">
     <div class="navbar-brand">⚔️ Battle Arena</div>
@@ -258,7 +238,6 @@
     </div>
   </div>
 
-  <!-- HOME PAGE -->
   <div class="page active" id="page-home">
     <div class="profile-card">
       <div class="profile-avatar" id="profile-avatar">?</div>
@@ -281,7 +260,6 @@
     </div>
   </div>
 
-  <!-- GACHA PAGE -->
   <div class="page" id="page-gacha">
     <div class="gacha-banner">
       <h2>🎲 Gacha</h2>
@@ -302,18 +280,15 @@
     <div id="gacha-results-container"></div>
   </div>
 
-  <!-- CHARACTERS PAGE -->
   <div class="page" id="page-characters">
     <div id="char-grid-container"></div>
   </div>
 </div>
 
-<!-- BATTLE SCREEN -->
 <div id="battle-screen">
   <div id="battle-content"></div>
 </div>
 
-<!-- MODALS -->
 <div class="modal-overlay" id="modal-create">
   <div class="modal">
     <h3>🗡️ Buat Room</h3>
@@ -376,13 +351,11 @@ async function doAuth() {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
     await loadUserData();
-    if (userData) socket.emit('auth', {user_id: userData.id || 0});
+    if (userData) socket.emit('auth', {user_id: userData.id});
   } else {
     document.getElementById('auth-error').textContent = data.message;
   }
 }
-
-// ─── DATA ────────────────────────────────────────────────────────────────────
 
 async function loadUserData() {
   const res = await fetch('/me');
@@ -402,8 +375,6 @@ function updateUI() {
   renderCharGrid();
 }
 
-// ─── PAGES ───────────────────────────────────────────────────────────────────
-
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -413,19 +384,8 @@ function showPage(name) {
   if (name === 'characters') renderCharGrid();
 }
 
-// ─── CHARS ───────────────────────────────────────────────────────────────────
-
-function gradeColor(g) {
-  return {'C':'#555','B':'#2196f3','A':'#9c27b0','S':'#ff9800','SS':'#ffd700'}[g] || '#555';
-}
-
-function starsHtml(n) {
-  return '⭐'.repeat(n);
-}
-
-function charImgSrc(img) {
-  return '/static/images/characters/' + img;
-}
+function starsHtml(n) { return '⭐'.repeat(n); }
+function charImgSrc(img) { return '/static/images/characters/' + img; }
 
 function renderCharGrid() {
   if (!userData) return;
@@ -437,7 +397,7 @@ function renderCharGrid() {
   container.innerHTML = '<div class="char-grid">' +
     userData.collection.map(c => `
       <div class="char-card" onclick="showCharDetail('${c.id}')">
-        <img class="char-card-img" src="${charImgSrc(c.image)}" onerror="this.style.background='#333';this.style.minHeight='44px'" alt="${c.name}"/>
+        <img class="char-card-img" src="${charImgSrc(c.image)}" onerror="this.style.background='#333'" alt="${c.name}"/>
         <div class="char-card-body">
           <div class="char-card-name">${c.name}</div>
           <div class="char-card-origin">${c.origin}</div>
@@ -454,9 +414,9 @@ function showCharDetail(charId) {
   if (!userData) return;
   const c = userData.collection.find(x => x.id === charId);
   if (!c) return;
-  const html = `
+  document.getElementById('char-detail-content').innerHTML = `
     <div class="char-detail">
-      <img class="char-detail-img" src="${charImgSrc(c.image)}" onerror="this.style.background='#333';this.style.minHeight='44px'" alt="${c.name}"/>
+      <img class="char-detail-img" src="${charImgSrc(c.image)}" onerror="this.style.background='#333'" alt="${c.name}"/>
       <div class="char-detail-info">
         <h3>${c.name}</h3>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
@@ -473,35 +433,23 @@ function showCharDetail(charId) {
     </div>
     <div class="skills-list">
       <h4>Skills</h4>
-      ${c.skills.map(s => `
-        <div class="skill-item">
-          <div class="sname">${s.name}</div>
-          <div class="sdesc">${s.description}</div>
-        </div>
-      `).join('')}
+      ${c.skills.map(s => `<div class="skill-item"><div class="sname">${s.name}</div><div class="sdesc">${s.description}</div></div>`).join('')}
     </div>
   `;
-  document.getElementById('char-detail-content').innerHTML = html;
   openModal('modal-char-detail');
 }
-
-// ─── GACHA ───────────────────────────────────────────────────────────────────
 
 async function doGacha(count) {
   const res = await fetch('/gacha', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({count})});
   const data = await res.json();
-  if (!data.success) {
-    alert(data.message);
-    return;
-  }
+  if (!data.success) { alert(data.message); return; }
   userData.points = data.points;
   document.getElementById('nav-points').textContent = data.points;
   document.getElementById('stat-points').textContent = data.points;
-  const cont = document.getElementById('gacha-results-container');
-  cont.innerHTML = '<div class="gacha-results">' +
+  document.getElementById('gacha-results-container').innerHTML = '<div class="gacha-results">' +
     data.results.map((r, i) => `
       <div class="result-card ${r.is_new ? 'result-new' : ''}" style="animation-delay:${i*0.1}s">
-        <img src="${charImgSrc(r.image)}" onerror="this.style.background='#333';this.style.minHeight='44px'" alt="${r.name}"/>
+        <img src="${charImgSrc(r.image)}" onerror="this.style.background='#333'" alt="${r.name}"/>
         <div class="rname">${r.name}</div>
         <span class="grade-badge grade-${r.grade}">${r.grade}</span>
         <div style="color:var(--gold);font-size:0.8rem;margin-top:4px">${starsHtml(r.stars)}</div>
@@ -510,8 +458,6 @@ async function doGacha(count) {
     `).join('') + '</div>';
   await loadUserData();
 }
-
-// ─── BATTLE SETUP ─────────────────────────────────────────────────────────────
 
 let createTeam = [];
 let joinTeam = [];
@@ -530,10 +476,9 @@ function openJoinRoom() {
 
 function renderTeamGrid(gridId, team, countId) {
   if (!userData || !userData.collection) return;
-  const grid = document.getElementById(gridId);
-  grid.innerHTML = userData.collection.map(c => `
+  document.getElementById(gridId).innerHTML = userData.collection.map(c => `
     <div class="team-card ${team.includes(c.id) ? 'selected' : ''}" onclick="toggleTeamChar('${c.id}','${gridId}','${countId}')">
-      <img src="${charImgSrc(c.image)}" onerror="this.style.background='#333';this.style.minHeight='44px'" style="width:70px;height:70px;object-fit:cover;border-radius:8px;margin-bottom:6px"/>
+      <img src="${charImgSrc(c.image)}" onerror="this.style.background='#333'" style="width:70px;height:70px;object-fit:cover;border-radius:8px;margin-bottom:6px"/>
       <div class="char-name">${c.name}</div>
       <div style="margin-top:4px"><span class="grade-badge grade-${c.grade}">${c.grade}</span></div>
     </div>
@@ -543,11 +488,8 @@ function renderTeamGrid(gridId, team, countId) {
 function toggleTeamChar(cid, gridId, countId) {
   const team = gridId.startsWith('create') ? createTeam : joinTeam;
   const idx = team.indexOf(cid);
-  if (idx >= 0) {
-    team.splice(idx, 1);
-  } else if (team.length < 3) {
-    team.push(cid);
-  }
+  if (idx >= 0) { team.splice(idx, 1); }
+  else if (team.length < 3) { team.push(cid); }
   renderTeamGrid(gridId, team, countId);
   document.getElementById(countId).textContent = `Dipilih: ${team.length}/3`;
 }
@@ -570,6 +512,15 @@ function confirmJoinRoom() {
 }
 
 // ─── SOCKET EVENTS ────────────────────────────────────────────────────────────
+
+socket.on('connect', () => {
+  if (userData) {
+    socket.emit('auth', {user_id: userData.id});
+    if (currentRoom && window._roomCode) {
+      socket.emit('rejoin_battle', {code: window._roomCode});
+    }
+  }
+});
 
 socket.on('room_created', (data) => {
   window._roomCode = data.code;
@@ -598,6 +549,10 @@ socket.on('battle_start', (data) => {
 
 socket.on('gbk_result', (data) => {
   currentRoom = data.room;
+  if (data.your_player_index !== undefined) {
+    myPlayerIndex = data.your_player_index;
+    sessionStorage.setItem('myPlayerIndex', myPlayerIndex);
+  }
   const firstUsername = currentRoom.players[data.first].username;
   setTimeout(() => {
     renderBattle();
@@ -609,12 +564,13 @@ socket.on('turn_result', (data) => {
   currentRoom = data.room;
   selectedCards = [];
   pendingTargetCard = null;
-  // restore myPlayerIndex if lost
-  if (myPlayerIndex === null) {
+  if (data.your_player_index !== undefined) {
+    myPlayerIndex = data.your_player_index;
+    sessionStorage.setItem('myPlayerIndex', myPlayerIndex);
+  } else if (myPlayerIndex === null) {
     const saved = sessionStorage.getItem('myPlayerIndex');
     if (saved !== null) myPlayerIndex = parseInt(saved);
   }
-  console.log('turn_result: room.turn=', data.room.turn, 'myPlayerIndex=', myPlayerIndex);
   renderBattle();
 });
 
@@ -627,22 +583,6 @@ socket.on('error', (data) => {
   alert(data.message);
 });
 
-socket.on('disconnect', () => {
-  console.log('Socket disconnected');
-});
-
-socket.on('connect', () => {
-  console.log('Socket connected/reconnected');
-  // re-auth on reconnect
-  if (userData) {
-    socket.emit('auth', {user_id: userData.id});
-    // if in battle, re-sync
-    if (currentRoom && window._roomCode) {
-      socket.emit('rejoin_battle', {code: window._roomCode});
-    }
-  }
-});
-
 // ─── BATTLE RENDER ───────────────────────────────────────────────────────────
 
 function renderBattle() {
@@ -653,9 +593,7 @@ function renderBattle() {
   const isMyTurn = room.turn === myPlayerIndex;
 
   let html = `
-    <div class="battle-header">
-      <h2>⚔️ Battle</h2>
-    </div>
+    <div class="battle-header"><h2>⚔️ Battle</h2></div>
     <div class="${isMyTurn ? 'turn-indicator your-turn' : 'turn-indicator opp-turn'}">
       ${isMyTurn ? '⚔️ Giliran Kamu!' : `⏳ Giliran ${opp.username}...`}
     </div>
@@ -684,11 +622,11 @@ function renderBattleChar(c) {
   const hpColor = hpPct > 50 ? 'var(--green)' : hpPct > 25 ? 'var(--orange)' : 'var(--accent)';
   const effects = [...(c.status_effects||[]), ...(c.buffs||[])].map(e => {
     const icons = {burn:'🔥',bleed:'🩸',poison:'☠️',stun:'⚡',slow:'🐢',shield:'🛡️',attack_up:'⬆️',defense_up:'🔰',counter:'↩️',undying:'💫',heal_block:'🚫',block_all:'🛡️',all_stats_up:'✨'};
-    return icons[e.type] || '❓';
+    return icons[e.type] || '';
   }).join('');
   return `
     <div class="battle-char ${!c.is_alive ? 'dead' : ''}">
-      <img src="${charImgSrc(c.image)}" onerror="this.style.display='none'" alt="${c.name}"/>
+      <img src="${charImgSrc(c.image)}" onerror="this.style.background='#333'" alt="${c.name}"/>
       <div class="battle-char-info">
         <div class="battle-char-name">${c.name} <span class="grade-badge grade-${c.grade}">${c.grade}</span></div>
         <div class="hp-bar-bg"><div class="hp-bar" style="width:${hpPct}%;background:${hpColor}"></div></div>
@@ -713,19 +651,14 @@ function renderCardSection(cards, oppChars) {
     `;
   });
   html += `</div>`;
-
-  // target selection for single_enemy skills
   if (pendingTargetCard !== null && aliveOpp.length > 1) {
     const card = cards[pendingTargetCard];
     if (card && card.skill && card.skill.target === 'single_enemy') {
       html += `<div class="target-select"><h5>Pilih target untuk ${card.skill.name}:</h5><div class="target-btns">`;
-      aliveOpp.forEach(c => {
-        html += `<button class="btn-target" onclick="setTarget('${c.id}')">${c.name}</button>`;
-      });
+      aliveOpp.forEach(c => { html += `<button class="btn-target" onclick="setTarget('${c.id}')">${c.name}</button>`; });
       html += `</div></div>`;
     }
   }
-
   html += `<button class="btn-confirm-skills" ${selectedCards.length < 3 ? 'disabled' : ''} onclick="confirmSkills()">✅ Eksekusi ${selectedCards.length}/3 Skill</button></div>`;
   return html;
 }
@@ -739,9 +672,7 @@ function toggleCard(idx) {
     const card = currentRoom.players[myPlayerIndex].cards[idx];
     const needsTarget = card.skill && card.skill.target === 'single_enemy';
     selectedCards.push({card_index: idx, target_char_id: null});
-    if (needsTarget) {
-      pendingTargetCard = idx;
-    }
+    if (needsTarget) pendingTargetCard = idx;
   }
   renderBattle();
 }
@@ -755,15 +686,7 @@ function setTarget(charId) {
 
 function confirmSkills() {
   if (selectedCards.length !== 3 || !currentRoom) return;
-  socket.emit('select_skills', {
-    code: getRoomCode(),
-    selected: selectedCards,
-  });
-}
-
-function getRoomCode() {
-  // room code is stored in waiting box or we need to track it
-  return window._roomCode || '';
+  socket.emit('select_skills', {code: window._roomCode, selected: selectedCards});
 }
 
 function renderBattleLog(log) {
@@ -772,17 +695,11 @@ function renderBattleLog(log) {
     if (l.startsWith('---TURN:')) {
       const username = l.replace('---TURN:', '').replace('---', '');
       const isMe = userData && username === userData.username;
-      const cls = isMe ? 'my-turn' : 'opp-turn';
-      return `<div class="log-separator ${cls}">⚔️ Giliran ${username}</div>`;
+      return `<div class="log-separator ${isMe ? 'my-turn' : 'opp-turn'}">⚔️ Giliran ${username}</div>`;
     }
     return `<div class="log-entry">${l}</div>`;
   }).join('');
-  return `
-    <div class="battle-log">
-      <h4>📜 Battle Log</h4>
-      ${entries}
-    </div>
-  `;
+  return `<div class="battle-log"><h4>📜 Battle Log</h4>${entries}</div>`;
 }
 
 function showGBK() {
@@ -801,9 +718,8 @@ function showGBK() {
 }
 
 function chooseGBK(choice) {
-  document.querySelectorAll('.btn-gbk').forEach(b => b.classList.remove('chosen'));
-  document.querySelectorAll('.btn-gbk').forEach(b => { if(b.title.toLowerCase().includes(choice==='rock'?'batu':choice==='scissors'?'gunting':'kertas')) b.classList.add('chosen'); });
-  document.getElementById('battle-content').innerHTML += `<p style="text-align:center;color:var(--muted);margin-top:16px">Menunggu lawan memilih...</p>`;
+  const titles = {rock:'Batu', scissors:'Gunting', paper:'Kertas'};
+  document.querySelectorAll('.btn-gbk').forEach(b => b.classList.toggle('chosen', b.title === titles[choice]));
   socket.emit('gbk_choice', {code: window._roomCode, choice});
 }
 
@@ -842,21 +758,16 @@ function exitBattle() {
   myPlayerIndex = null;
   selectedCards = [];
   window._roomCode = null;
+  sessionStorage.removeItem('myPlayerIndex');
+  sessionStorage.removeItem('roomCode');
 }
-
-// ─── MODAL HELPERS (defined early so confirmJoinRoom can reference openModal) ──
-
-// ─── MODAL HELPERS ────────────────────────────────────────────────────────────
 
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-// click outside modal to close
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
 });
-
-// ─── INIT ────────────────────────────────────────────────────────────────────
 
 (async () => {
   const res = await fetch('/me');
@@ -866,9 +777,8 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
     document.getElementById('app').style.flexDirection = 'column';
     userData = await res.json();
     updateUI();
-    socket.emit('auth', {user_id: userData.id || 0});
+    socket.emit('auth', {user_id: userData.id});
   } else {
-    // not logged in, show auth screen
     document.getElementById('auth-screen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
   }

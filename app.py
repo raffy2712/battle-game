@@ -846,12 +846,16 @@ def on_select_skills(data):
     room['log'].append(separator)
     room['log'].extend(log)
 
-    for i in range(2):
-        socketio.emit('turn_result', {
-            'log': log,
-            'room': sanitize_room(room, i),
-            'turn_username': room['players'][pidx]['username'],
-        }, room=room['players'][i]['sid'])
+    # Send personalized turn_result to each player
+    code_for_emit = next((k for k, v in rooms.items() if v is room), None)
+    if code_for_emit:
+        for i in range(2):
+            socketio.emit('turn_result', {
+                'log': log,
+                'room': sanitize_room(room, i),
+                'turn_username': room['players'][pidx]['username'],
+                'your_player_index': i,
+            }, room=room['players'][i]['sid'])
 
 def _end_battle(room, winner_idx):
     loser_idx = 1 - winner_idx
