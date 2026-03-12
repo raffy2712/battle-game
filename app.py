@@ -741,11 +741,12 @@ def on_gbk_choice(data):
         else:
             room['turn'] = result
         room['phase'] = 'battle'
+        choices_snapshot = {0: c0, 1: c1}
         room['gbk_choices'] = {}
         for i in range(2):
             socketio.emit('gbk_result', {
-                'your_choice': room['players'][i].get('gbk_temp', choice),
-                'opp_choice': room['players'][1-i].get('gbk_temp', choice),
+                'your_choice': choices_snapshot[i],
+                'opp_choice': choices_snapshot[1-i],
                 'first': room['turn'],
                 'room': sanitize_room(room, i),
             }, room=room['players'][i]['sid'])
@@ -799,13 +800,13 @@ def on_select_skills(data):
         _end_battle(room, winner)
         return
 
-    # refresh acting player cards
-    pool = build_card_pool(p['chars'])
-    p['cards'] = draw_cards(pool)
-
     # switch turn
     room['turn'] = 1 - pidx
     next_p = room['players'][room['turn']]
+
+    # refresh NEXT player's cards
+    pool = build_card_pool(next_p['chars'])
+    next_p['cards'] = draw_cards(pool)
 
     # tick status effects for next player chars at start of their turn
     tick_log = tick_status_effects(next_p['chars'])
