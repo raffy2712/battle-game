@@ -192,6 +192,81 @@ def gacha():
     db.session.commit()
     return jsonify({'success': True, 'results': results, 'points': current_user.points})
 
+# ─── ADMIN ───────────────────────────────────────────────────────────────────
+
+ADMIN_USERNAME = 'raffyadmin'
+
+def is_admin():
+    return current_user.is_authenticated and current_user.username == ADMIN_USERNAME
+
+@app.route('/admin')
+def admin_panel():
+    if not is_admin():
+        return redirect(url_for('index'))
+    users = User.query.all()
+    users_data = []
+    for u in users:
+        if u.username == ADMIN_USERNAME:
+            continue
+        users_data.append({
+            'id': u.id,
+            'username': u.username,
+            'points': u.points,
+            'wins': u.wins,
+            'losses': u.losses,
+            'collection_count': len(json.loads(u.collection or '{}')),
+        })
+    return render_template('admin.html', users=users_data)
+
+@app.route('/admin/give_points', methods=['POST'])
+def admin_give_points():
+    if not is_admin():
+        return jsonify({'success': False, 'message': 'Unauthorized'})
+    data = request.get_json()
+    username = data.get('username')
+    points = int(data.get('points', 0))
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'success': False, 'message': 'User tidak ditemukan'})
+    user.points += points
+    db.session.commit()
+    return jsonify({'success': True, 'message': f'+{points} poin diberikan ke {username}', 'new_points': user.points})
+
+@app.route('/admin/set_points', methods=['POST'])
+def admin_set_points():
+    if not is_admin():
+        return jsonify({'success': False, 'message': 'Unauthorized'})
+    data = request.get_json()
+    username = data.get('username')
+    points = int(data.get('points', 0))
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'success': False, 'message': 'User tidak ditemukan'})
+    user.points = points
+    db.session.commit()
+    return jsonify({'success': True, 'message': f'Poin {username} diset ke {points}', 'new_points': user.points})
+
+@app.route('/admin/reset_user', methods=['POST'])
+def admin_reset_user():
+    if not is_admin():
+        return jsonify({'success': False, 'message': 'Unauthorized'})
+    data = request.get_json()
+    username = data.get('username')
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({'success': False, 'message': 'User tidak ditemukan'})
+    user.points = 0
+    user.wins = 0
+    user.losses = 0
+    user.pull_count = 0
+    col = {}
+    for cid, cdata in CHARACTERS.items():
+        if cdata['is_starter']:
+            col[cid] = {'grade': cdata['base_grade'], 'stars': 1}
+    user.save_collection(col)
+    db.session.commit()
+    return jsonify({'success': True, 'message': f'Akun {username} direset'})
+
 # ─── BATTLE ROOMS ─────────────────────────────────────────────────────────────
 
 rooms = {}  # room_code -> room_state

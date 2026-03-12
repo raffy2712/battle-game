@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Admin Panel - Battle Arena</title>
+<style>
+  :root {
+    --bg: #0d0d1a;
+    --card: #1a1a2e;
+    --card2: #16213e;
+    --accent: #e94560;
+    --gold: #ffd700;
+    --text: #eaeaea;
+    --muted: #888;
+    --green: #4caf50;
+    --blue: #2196f3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+  .navbar { background: var(--card); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 60px; border-bottom: 1px solid #222; }
+  .navbar-brand { font-size: 1.2rem; font-weight: 800; color: var(--accent); }
+  .btn-back { background: none; border: 1px solid #444; padding: 6px 14px; border-radius: 8px; color: var(--muted); cursor: pointer; font-size: 0.85rem; text-decoration: none; }
+  .btn-back:hover { border-color: var(--accent); color: var(--accent); }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+  h2 { font-size: 1.4rem; margin-bottom: 20px; color: var(--gold); }
+
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .stat-card { background: var(--card); border-radius: 12px; padding: 16px; text-align: center; }
+  .stat-card .val { font-size: 1.8rem; font-weight: 800; color: var(--accent); }
+  .stat-card .lbl { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+
+  .search-box { background: var(--card2); border: 1px solid #333; border-radius: 8px; padding: 10px 16px; color: var(--text); font-size: 0.95rem; width: 100%; margin-bottom: 16px; outline: none; }
+  .search-box:focus { border-color: var(--accent); }
+
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; }
+  th { background: var(--card2); padding: 12px 16px; text-align: left; font-size: 0.8rem; color: var(--muted); text-transform: uppercase; }
+  td { padding: 12px 16px; border-bottom: 1px solid #222; font-size: 0.9rem; }
+  tr:last-child td { border: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .btn-give { padding: 5px 12px; background: var(--green); border: none; border-radius: 6px; color: white; cursor: pointer; font-size: 0.8rem; font-weight: 600; margin-right: 4px; }
+  .btn-set { padding: 5px 12px; background: var(--blue); border: none; border-radius: 6px; color: white; cursor: pointer; font-size: 0.8rem; font-weight: 600; margin-right: 4px; }
+  .btn-reset { padding: 5px 12px; background: var(--accent); border: none; border-radius: 6px; color: white; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--card); border: 1px solid var(--accent); padding: 12px 20px; border-radius: 10px; font-size: 0.9rem; z-index: 999; display: none; }
+  .toast.show { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--card); border-radius: 16px; padding: 28px; width: 320px; }
+  .modal h4 { margin-bottom: 16px; }
+  .modal input { width: 100%; padding: 10px 14px; background: var(--card2); border: 1px solid #333; border-radius: 8px; color: var(--text); font-size: 1rem; margin-bottom: 12px; outline: none; }
+  .modal input:focus { border-color: var(--accent); }
+  .modal-btns { display: flex; gap: 8px; }
+  .modal-btns button { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+  .btn-confirm { background: var(--accent); color: white; }
+  .btn-cancel { background: var(--card2); color: var(--muted); }
+
+  .points-cell { color: var(--gold); font-weight: 700; }
+  .win-cell { color: var(--green); }
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <div class="navbar-brand">⚙️ Admin Panel</div>
+  <a href="/" class="btn-back">← Kembali ke Game</a>
+</div>
+
+<div class="container">
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="val" id="total-users">{{ users|length }}</div>
+      <div class="lbl">Total Player</div>
+    </div>
+    <div class="stat-card">
+      <div class="val" id="total-points">{{ users|sum(attribute='points') }}</div>
+      <div class="lbl">Total Poin</div>
+    </div>
+    <div class="stat-card">
+      <div class="val" id="total-wins">{{ users|sum(attribute='wins') }}</div>
+      <div class="lbl">Total Battle</div>
+    </div>
+  </div>
+
+  <h2>👥 Daftar Player</h2>
+  <input class="search-box" placeholder="🔍 Cari username..." oninput="filterTable(this.value)"/>
+
+  <table id="user-table">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Poin</th>
+        <th>Menang</th>
+        <th>Kalah</th>
+        <th>Karakter</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr data-username="{{ u.username }}">
+        <td>{{ u.username }}</td>
+        <td class="points-cell" id="points-{{ u.username }}">{{ u.points }}</td>
+        <td class="win-cell">{{ u.wins }}</td>
+        <td style="color:var(--accent)">{{ u.losses }}</td>
+        <td>{{ u.collection_count }}</td>
+        <td>
+          <button class="btn-give" onclick="openGive('{{ u.username }}')">+ Poin</button>
+          <button class="btn-set" onclick="openSet('{{ u.username }}')">Set Poin</button>
+          <button class="btn-reset" onclick="confirmReset('{{ u.username }}')">Reset</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- MODAL GIVE -->
+<div class="modal-overlay" id="modal-give">
+  <div class="modal">
+    <h4>➕ Beri Poin ke <span id="give-username"></span></h4>
+    <input type="number" id="give-amount" placeholder="Jumlah poin" min="1"/>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-give')">Batal</button>
+      <button class="btn-confirm" onclick="submitGive()">Beri Poin</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL SET -->
+<div class="modal-overlay" id="modal-set">
+  <div class="modal">
+    <h4>✏️ Set Poin <span id="set-username"></span></h4>
+    <input type="number" id="set-amount" placeholder="Poin baru" min="0"/>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-set')">Batal</button>
+      <button class="btn-confirm" onclick="submitSet()">Set Poin</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let currentUser = '';
+
+function openGive(username) {
+  currentUser = username;
+  document.getElementById('give-username').textContent = username;
+  document.getElementById('give-amount').value = '';
+  document.getElementById('modal-give').classList.add('open');
+}
+
+function openSet(username) {
+  currentUser = username;
+  document.getElementById('set-username').textContent = username;
+  document.getElementById('set-amount').value = '';
+  document.getElementById('modal-set').classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+async function submitGive() {
+  const points = parseInt(document.getElementById('give-amount').value);
+  if (!points || points <= 0) { alert('Masukkan jumlah poin yang valid!'); return; }
+  const res = await fetch('/admin/give_points', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username: currentUser, points})
+  });
+  const data = await res.json();
+  if (data.success) {
+    document.getElementById('points-' + currentUser).textContent = data.new_points;
+    showToast(data.message);
+    closeModal('modal-give');
+  } else {
+    alert(data.message);
+  }
+}
+
+async function submitSet() {
+  const points = parseInt(document.getElementById('set-amount').value);
+  if (points === undefined || points < 0) { alert('Masukkan jumlah poin yang valid!'); return; }
+  const res = await fetch('/admin/set_points', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username: currentUser, points})
+  });
+  const data = await res.json();
+  if (data.success) {
+    document.getElementById('points-' + currentUser).textContent = data.new_points;
+    showToast(data.message);
+    closeModal('modal-set');
+  } else {
+    alert(data.message);
+  }
+}
+
+async function confirmReset(username) {
+  if (!confirm(`Reset akun ${username}? Semua poin, koleksi, dan stats akan direset ke awal!`)) return;
+  const res = await fetch('/admin/reset_user', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username})
+  });
+  const data = await res.json();
+  if (data.success) {
+    showToast(data.message);
+    setTimeout(() => location.reload(), 1000);
+  } else {
+    alert(data.message);
+  }
+}
+
+function filterTable(query) {
+  const rows = document.querySelectorAll('#user-table tbody tr');
+  rows.forEach(row => {
+    const username = row.getAttribute('data-username').toLowerCase();
+    row.style.display = username.includes(query.toLowerCase()) ? '' : 'none';
+  });
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+</script>
+</body>
+</html>
