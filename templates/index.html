@@ -437,7 +437,7 @@ function renderCharGrid() {
   container.innerHTML = '<div class="char-grid">' +
     userData.collection.map(c => `
       <div class="char-card" onclick="showCharDetail('${c.id}')">
-        <img class="char-card-img" src="${charImgSrc(c.image)}" onerror="this.src='https://via.placeholder.com/160x160/1a1a2e/888?text=${encodeURIComponent(c.name)}'" alt="${c.name}"/>
+        <img class="char-card-img" src="${charImgSrc(c.image)}" onerror="this.style.background='#333';this.style.minHeight='44px'" alt="${c.name}"/>
         <div class="char-card-body">
           <div class="char-card-name">${c.name}</div>
           <div class="char-card-origin">${c.origin}</div>
@@ -456,7 +456,7 @@ function showCharDetail(charId) {
   if (!c) return;
   const html = `
     <div class="char-detail">
-      <img class="char-detail-img" src="${charImgSrc(c.image)}" onerror="this.src='https://via.placeholder.com/140x140/1a1a2e/888?text=${encodeURIComponent(c.name)}'" alt="${c.name}"/>
+      <img class="char-detail-img" src="${charImgSrc(c.image)}" onerror="this.style.background='#333';this.style.minHeight='44px'" alt="${c.name}"/>
       <div class="char-detail-info">
         <h3>${c.name}</h3>
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
@@ -501,7 +501,7 @@ async function doGacha(count) {
   cont.innerHTML = '<div class="gacha-results">' +
     data.results.map((r, i) => `
       <div class="result-card ${r.is_new ? 'result-new' : ''}" style="animation-delay:${i*0.1}s">
-        <img src="${charImgSrc(r.image)}" onerror="this.src='https://via.placeholder.com/80x80/1a1a2e/888?text=${encodeURIComponent(r.name)}'" alt="${r.name}"/>
+        <img src="${charImgSrc(r.image)}" onerror="this.style.background='#333';this.style.minHeight='44px'" alt="${r.name}"/>
         <div class="rname">${r.name}</div>
         <span class="grade-badge grade-${r.grade}">${r.grade}</span>
         <div style="color:var(--gold);font-size:0.8rem;margin-top:4px">${starsHtml(r.stars)}</div>
@@ -533,7 +533,7 @@ function renderTeamGrid(gridId, team, countId) {
   const grid = document.getElementById(gridId);
   grid.innerHTML = userData.collection.map(c => `
     <div class="team-card ${team.includes(c.id) ? 'selected' : ''}" onclick="toggleTeamChar('${c.id}','${gridId}','${countId}')">
-      <img src="${charImgSrc(c.image)}" onerror="this.src='https://via.placeholder.com/70x70/1a1a2e/888?text=${encodeURIComponent(c.name)}'" style="width:70px;height:70px;object-fit:cover;border-radius:8px;margin-bottom:6px"/>
+      <img src="${charImgSrc(c.image)}" onerror="this.style.background='#333';this.style.minHeight='44px'" style="width:70px;height:70px;object-fit:cover;border-radius:8px;margin-bottom:6px"/>
       <div class="char-name">${c.name}</div>
       <div style="margin-top:4px"><span class="grade-badge grade-${c.grade}">${c.grade}</span></div>
     </div>
@@ -589,9 +589,10 @@ socket.on('room_created', (data) => {
 socket.on('battle_start', (data) => {
   currentRoom = data.room;
   myPlayerIndex = data.player_index;
+  sessionStorage.setItem('myPlayerIndex', myPlayerIndex);
+  sessionStorage.setItem('roomCode', window._roomCode || '');
   selectedCards = [];
   renderBattle();
-  // show GBK
   showGBK();
 });
 
@@ -608,6 +609,11 @@ socket.on('turn_result', (data) => {
   currentRoom = data.room;
   selectedCards = [];
   pendingTargetCard = null;
+  // restore myPlayerIndex if lost
+  if (myPlayerIndex === null) {
+    const saved = sessionStorage.getItem('myPlayerIndex');
+    if (saved !== null) myPlayerIndex = parseInt(saved);
+  }
   console.log('turn_result: room.turn=', data.room.turn, 'myPlayerIndex=', myPlayerIndex);
   renderBattle();
 });
@@ -666,7 +672,7 @@ function renderBattleChar(c) {
   }).join('');
   return `
     <div class="battle-char ${!c.is_alive ? 'dead' : ''}">
-      <img src="${charImgSrc(c.image)}" onerror="this.src='https://via.placeholder.com/44x44/1a1a2e/888?text=${encodeURIComponent(c.name[0])}'" alt="${c.name}"/>
+      <img src="${charImgSrc(c.image)}" onerror="this.style.display='none'" alt="${c.name}"/>
       <div class="battle-char-info">
         <div class="battle-char-name">${c.name} <span class="grade-badge grade-${c.grade}">${c.grade}</span></div>
         <div class="hp-bar-bg"><div class="hp-bar" style="width:${hpPct}%;background:${hpColor}"></div></div>
