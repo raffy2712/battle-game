@@ -620,13 +620,17 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
 
     return log
 
-def tick_status_effects(chars):
+def tick_dot_effects(chars):
+    """
+    Dipanggil di AWAL giliran player (sebelum dia bertindak).
+    Hanya proses DOT (burn/bleed/poison) dan heal_over_time.
+    TIDAK decrement duration stun/skip_turn — karena efek itu baru
+    boleh berkurang SETELAH giliran si pemilik selesai diblokir.
+    """
     log = []
     for c in chars:
         if not c['is_alive']:
             continue
-        new_effects = []
-        new_buffs = []
         for se in c['status_effects']:
             setype = se.get('type')
             if setype in ['burn', 'bleed', 'poison']:
@@ -640,6 +644,23 @@ def tick_status_effects(chars):
                 heal_val = se.get('value', 0)
                 c['hp'] = min(c['max_hp'], c['hp'] + heal_val)
                 log.append(f"{c['name']} +{heal_val} HP dari heal bertahap.")
+    return log
+
+def tick_duration_effects(chars):
+    """
+    Dipanggil di AKHIR giliran player (setelah dia selesai bertindak).
+    Decrement semua duration efek — stun/skip_turn/slow/burn/bleed/dll.
+    Ini memastikan efek kontrol benar-benar memblokir giliran dulu
+    sebelum durasinya berkurang.
+    """
+    log = []
+    for c in chars:
+        if not c['is_alive']:
+            continue
+        new_effects = []
+        new_buffs = []
+        for se in c['status_effects']:
+            setype = se.get('type')
             se['duration'] -= 1
             if se['duration'] > 0:
                 new_effects.append(se)
@@ -647,11 +668,9 @@ def tick_status_effects(chars):
                 if setype in ['stun', 'skip_turn']:
                     log.append(f"{c['name']} sudah pulih dari efek {setype}.")
         for b in c['buffs']:
-            # FIX #2: permanent_stat_down tidak punya duration, skip decrement
             if b.get('type') == 'permanent_stat_down':
                 new_buffs.append(b)
                 continue
-            # FIX #2: pakai .get() biar aman kalau duration tidak ada
             b['duration'] = b.get('duration', 1) - 1
             if b['duration'] > 0:
                 new_buffs.append(b)
@@ -957,10 +976,17 @@ def on_select_skills(data):
 
     # Switch turn
     room['turn'] = 1 - pidx
+    curr_p = room['players'][pidx]
     next_p = room['players'][room['turn']]
 
-    tick_log = tick_status_effects(next_p['chars'])
-    log.extend(tick_log)
+    # Step 1: Decrement duration efek player yang BARU SELESAI bertindak.
+    # Stun/skip_turn sudah memblokir giliran mereka, baru sekarang boleh berkurang.
+    duration_log = tick_duration_effects(curr_p['chars'])
+    log.extend(duration_log)
+
+    # Step 2: Tick DOT (burn/bleed/poison/heal_over_time) player berikutnya di awal gilirannya.
+    dot_log = tick_dot_effects(next_p['chars'])
+    log.extend(dot_log)
 
     pool = build_card_pool(next_p['chars'])
     next_p['cards'] = draw_cards(pool)
