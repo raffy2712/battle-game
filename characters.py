@@ -438,7 +438,8 @@ CHARACTERS = {
                 "type": "debuff",
                 "target": "single_enemy",
                 "damage_multiplier": 0,
-                "effect": {"type": "permanent_stat_down", "attack_down": 0.20, "defense_down": 0.20},
+                # FIX #2 & #6: tambah duration=9999 agar tick_status_effects tidak crash
+                "effect": {"type": "permanent_stat_down", "attack_down": 0.20, "defense_down": 0.20, "duration": 9999},
             },
             {
                 "id": "life_force_burst",

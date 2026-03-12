@@ -1,6 +1,7 @@
 import os
 import random
 import math
+import time
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from flask_socketio import SocketIO, join_room, leave_room, emit
 from flask_sqlalchemy import SQLAlchemy
@@ -29,7 +30,7 @@ class User(UserMixin, db.Model):
     wins = db.Column(db.Integer, default=0)
     losses = db.Column(db.Integer, default=0)
     pull_count = db.Column(db.Integer, default=0)
-    collection = db.Column(db.Text, default='{}')  # JSON: {char_id: {grade, stars}}
+    collection = db.Column(db.Text, default='{}')
 
     def get_collection(self):
         return json.loads(self.collection)
@@ -199,7 +200,9 @@ ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'raffyadmin')
 def is_admin():
     return current_user.is_authenticated and current_user.username == ADMIN_USERNAME
 
+# FIX #9: tambah @login_required di semua admin routes sebagai lapis pertama
 @app.route('/admin')
+@login_required
 def admin_panel():
     if not is_admin():
         return redirect(url_for('index'))
@@ -219,6 +222,7 @@ def admin_panel():
     return render_template('admin.html', users=users_data)
 
 @app.route('/admin/give_points', methods=['POST'])
+@login_required
 def admin_give_points():
     if not is_admin():
         return jsonify({'success': False, 'message': 'Unauthorized'})
@@ -233,6 +237,7 @@ def admin_give_points():
     return jsonify({'success': True, 'message': f'+{points} poin diberikan ke {username}', 'new_points': user.points})
 
 @app.route('/admin/set_points', methods=['POST'])
+@login_required
 def admin_set_points():
     if not is_admin():
         return jsonify({'success': False, 'message': 'Unauthorized'})
@@ -247,6 +252,7 @@ def admin_set_points():
     return jsonify({'success': True, 'message': f'Poin {username} diset ke {points}', 'new_points': user.points})
 
 @app.route('/admin/reset_user', methods=['POST'])
+@login_required
 def admin_reset_user():
     if not is_admin():
         return jsonify({'success': False, 'message': 'Unauthorized'})
@@ -269,7 +275,18 @@ def admin_reset_user():
 
 # ─── BATTLE ROOMS ─────────────────────────────────────────────────────────────
 
-rooms = {}  # room_code -> room_state
+rooms = {}
+ROOM_TTL_SECONDS = 600  # FIX #8: 10 menit TTL untuk room waiting
+
+def cleanup_stale_rooms():
+    """Hapus room waiting yang sudah lebih dari 10 menit tidak ada yang join."""
+    now = time.time()
+    stale = [
+        code for code, room in rooms.items()
+        if room['phase'] == 'waiting' and now - room.get('created_at', now) > ROOM_TTL_SECONDS
+    ]
+    for code in stale:
+        rooms.pop(code, None)
 
 def make_battle_char(user, char_id):
     col = user.get_collection()
@@ -312,17 +329,12 @@ def draw_cards(pool, count=5):
         return pool[:]
     return random.sample(pool, count)
 
-def is_char_stunned(char):
-    """Check if a character is stunned or has skip_turn effect."""
-    return any(se['type'] in ['stun', 'skip_turn'] for se in char.get('status_effects', []))
-
 def calc_damage(attacker, defender, skill, next_skill_boost=0):
     mult = skill.get('damage_multiplier', 0)
     if mult == 0:
         return 0
     raw = attacker['attack'] * mult
 
-    # attack buffs on attacker
     for b in attacker['buffs']:
         if b['type'] == 'attack_up':
             raw *= (1 + b['value'])
@@ -331,20 +343,16 @@ def calc_damage(attacker, defender, skill, next_skill_boost=0):
         elif b['type'] == 'all_stats_up':
             raw *= (1 + b['value'])
 
-    # permanent stat down on attacker
     for b in attacker['buffs']:
         if b['type'] == 'permanent_stat_down':
             raw *= (1 - b.get('attack_down', 0))
 
-    # next skill boost
     if next_skill_boost > 0:
         raw *= (1 + next_skill_boost)
 
-    # ignore defense
     ignore = skill.get('ignore_defense', 0)
     effective_def = defender['defense'] * (1 - ignore)
 
-    # defense buffs/debuffs on defender
     for b in defender['buffs']:
         if b['type'] == 'defense_up':
             effective_def *= (1 + b['value'])
@@ -353,7 +361,6 @@ def calc_damage(attacker, defender, skill, next_skill_boost=0):
         elif b['type'] == 'all_stats_up':
             effective_def *= (1 + b['value'])
 
-    # permanent stat down on defender defense
     for b in defender['buffs']:
         if b['type'] == 'permanent_stat_down':
             effective_def *= (1 - b.get('defense_down', 0))
@@ -362,7 +369,6 @@ def calc_damage(attacker, defender, skill, next_skill_boost=0):
     return dmg
 
 def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
-    """Apply a single skill and return a log entry."""
     players = room['players']
     p = players[acting_player]
     opp = players[1 - acting_player]
@@ -392,9 +398,8 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
             targets = [c for c in opp['chars'] if c['is_alive']]
 
         for target in targets:
-            # check block
+            # `blocked` didefinisikan di sini, dalam scope target — tidak bocor ke heal
             blocked = any(b['type'] in ['block_all', 'invincible_counter'] for b in target['buffs'])
-            # check counter (Levi counter_stance) — reflect tapi tidak block serangan
             counter_buff = next((b for b in target['buffs'] if b['type'] == 'counter'), None)
             total_dmg = 0
             for h in range(hits):
@@ -419,7 +424,6 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                     target['is_alive'] = False
                     log.append(f"{target['name']} telah dikalahkan!")
 
-                # FIX: counter buff (Levi counter_stance) - serangan tetap kena tapi sebagian balik
                 if counter_buff and total_dmg > 0:
                     reflect_dmg = math.floor(total_dmg * counter_buff.get('value', 0))
                     if reflect_dmg > 0:
@@ -429,25 +433,21 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                             actor['is_alive'] = False
                             log.append(f"{actor['name']} telah dikalahkan!")
 
-                # lifesteal
                 if skill.get('lifesteal'):
                     heal = math.floor(total_dmg * skill['lifesteal'])
                     actor['hp'] = min(actor['max_hp'], actor['hp'] + heal)
                     log.append(f"{actor['name']} lifesteal +{heal} HP.")
 
-                # drain
                 if skill.get('drain'):
                     drain_amt = math.floor(total_dmg * skill['drain'])
                     actor['hp'] = min(actor['max_hp'], actor['hp'] + drain_amt)
                     log.append(f"{actor['name']} drain +{drain_amt} HP.")
 
-                # FIX: self_heal for damage skills (e.g. Tanjiro water_surface_slash)
                 if skill.get('self_heal'):
                     heal_amt = math.floor(actor['max_hp'] * skill['self_heal'])
                     actor['hp'] = min(actor['max_hp'], actor['hp'] + heal_amt)
                     log.append(f"{actor['name']} heal diri sendiri +{heal_amt} HP.")
 
-                # overflow damage
                 if skill.get('overflow_damage') and target['hp'] <= 0:
                     overflow = total_dmg - (target['hp'] + total_dmg)
                     next_alive = next((c for c in opp['chars'] if c['is_alive'] and c['id'] != target['id']), None)
@@ -458,7 +458,6 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                             next_alive['is_alive'] = False
                             log.append(f"{next_alive['name']} telah dikalahkan!")
 
-                # apply effect
                 effect = skill.get('effect')
                 if effect:
                     chance = effect.get('chance', 1.0)
@@ -485,18 +484,23 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                             target['status_effects'].append({**effect})
                             log.append(f"{target['name']} terkena SLOW! Hanya bisa pakai 1 skill.")
 
-                # dispel buffs
                 if skill.get('dispel'):
                     target['buffs'] = []
                     log.append(f"Semua buff {target['name']} dihapus!")
 
-                # aoe debuff (e.g muzan)
                 aoe = skill.get('aoe_debuff')
                 if aoe:
                     for ec in opp['chars']:
                         if ec['is_alive']:
                             ec['buffs'].append({**aoe})
                     log.append(f"Semua musuh terkena debuff!")
+
+        # ally_buff untuk damage skills (e.g. Cyclops big_bang)
+        ally_buff = skill.get('ally_buff')
+        if ally_buff:
+            for t in [c for c in p['chars'] if c['is_alive']]:
+                t['buffs'].append({**ally_buff})
+            log.append(f"Semua ally mendapat buff {ally_buff['type']}!")
 
     # ── HEAL ──
     elif stype == 'heal':
@@ -514,20 +518,22 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
         elif target_type == 'single_ally':
             alive = [c for c in p['chars'] if c['is_alive']]
             if target_char_id:
-                # FIX: pastikan target masih hidup, fallback ke ally pertama kalau sudah mati
                 t = next((c for c in alive if c['id'] == target_char_id), None)
                 targets = [t] if t else (alive[:1] if alive else [])
             else:
                 targets = alive[:1]
 
+        NEGATIVE_EFFECTS = ['burn', 'bleed', 'poison', 'stun', 'slow', 'skip_turn', 'attack_down', 'defense_down', 'heal_block']
+
         for t in targets:
-            if not blocked:
+            # FIX #1: cek heal_block per-target dengan variable lokal, tidak pakai `blocked` dari scope damage
+            heal_blocked = any(se.get('type') == 'heal_block' for se in t.get('status_effects', []))
+            if not heal_blocked:
                 t['hp'] = min(t['max_hp'], t['hp'] + heal_amt)
                 log.append(f"{actor['name']} heal {t['name']} +{heal_amt} HP.")
-                # FIX: heal_over_turns (Angela love_waves) - tambahkan efek heal bertahap
                 hot_turns = skill.get('heal_over_turns', 0)
                 if hot_turns > 0:
-                    hot_per_turn = math.floor(heal_amt * 0.5)  # tiap tick heal 50% dari heal_amt
+                    hot_per_turn = math.floor(heal_amt * 0.5)
                     t['status_effects'].append({
                         'type': 'heal_over_time',
                         'value': hot_per_turn,
@@ -537,8 +543,6 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
             else:
                 log.append(f"{t['name']} tidak bisa di-heal!")
 
-        # cleanse — buang semua efek negatif
-        NEGATIVE_EFFECTS = ['burn', 'bleed', 'poison', 'stun', 'slow', 'skip_turn', 'attack_down', 'defense_down', 'heal_block']
         if skill.get('cleanse'):
             for t in targets:
                 before = len(t['status_effects'])
@@ -547,9 +551,8 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                 if len(t['status_effects']) < before:
                     log.append(f"Status efek negatif {t['name']} dibersihkan!")
 
-        # shield
         effect = skill.get('effect')
-        if effect and effect['type'] == 'shield':
+        if effect and effect.get('type') == 'shield':
             for t in targets:
                 t['buffs'].append({**effect})
                 log.append(f"{t['name']} mendapat shield!")
@@ -575,19 +578,16 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                 t['buffs'].append({**effect})
                 log.append(f"{t['name']} mendapat buff {effect['type']}!")
 
-        # FIX: ally_buff (e.g. Cyclops big_bang)
         ally_buff = skill.get('ally_buff')
         if ally_buff:
             for t in [c for c in p['chars'] if c['is_alive']]:
                 t['buffs'].append({**ally_buff})
             log.append(f"Semua ally mendapat buff {ally_buff['type']}!")
 
-        # next skill boost
         if skill.get('next_skill_boost'):
             actor['next_skill_boost'] = skill['next_skill_boost']
             log.append(f"{actor['name']} skill berikutnya +{int(skill['next_skill_boost']*100)}% damage!")
 
-        # self heal
         if skill.get('self_heal'):
             heal_amt = math.floor(actor['max_hp'] * skill['self_heal'])
             actor['hp'] = min(actor['max_hp'], actor['hp'] + heal_amt)
@@ -612,14 +612,6 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                 t['status_effects'].append({**effect})
                 log.append(f"{t['name']} terkena {effect['type']}!")
 
-    # FIX: ally_buff juga berlaku untuk damage skills (e.g. Cyclops big_bang)
-    ally_buff = skill.get('ally_buff')
-    if ally_buff and stype == 'damage':
-        for t in [c for c in p['chars'] if c['is_alive']]:
-            t['buffs'].append({**ally_buff})
-        log.append(f"Semua ally mendapat buff {ally_buff['type']}!")
-
-    # reset cards — flag agar loop on_select_skills tahu cards sudah berubah
     if skill.get('reset_cards'):
         pool = build_card_pool(p['chars'])
         p['cards'] = draw_cards(pool)
@@ -644,7 +636,6 @@ def tick_status_effects(chars):
                 if c['hp'] <= 0:
                     c['is_alive'] = False
                     log.append(f"{c['name']} telah dikalahkan!")
-            # FIX: heal_over_time (Angela love_waves)
             elif setype == 'heal_over_time':
                 heal_val = se.get('value', 0)
                 c['hp'] = min(c['max_hp'], c['hp'] + heal_val)
@@ -656,10 +647,12 @@ def tick_status_effects(chars):
                 if setype in ['stun', 'skip_turn']:
                     log.append(f"{c['name']} sudah pulih dari efek {setype}.")
         for b in c['buffs']:
+            # FIX #2: permanent_stat_down tidak punya duration, skip decrement
             if b.get('type') == 'permanent_stat_down':
                 new_buffs.append(b)
                 continue
-            b['duration'] -= 1
+            # FIX #2: pakai .get() biar aman kalau duration tidak ada
+            b['duration'] = b.get('duration', 1) - 1
             if b['duration'] > 0:
                 new_buffs.append(b)
         c['status_effects'] = new_effects
@@ -674,11 +667,6 @@ def check_winner(room):
     return None
 
 def get_max_actions(player):
-    """
-    Calculate max usable actions for a player this turn.
-    Considers stun/skip_turn/slow per character.
-    Returns a dict: {total_actions, stunned_char_ids, slowed_char_ids}
-    """
     stunned_ids = set()
     slowed_ids = set()
     for c in player['chars']:
@@ -699,7 +687,7 @@ def get_max_actions(player):
 from flask_socketio import disconnect
 from flask import session as flask_session
 
-connected_users = {}  # sid -> user_id
+connected_users = {}
 
 @socketio.on('connect')
 def on_connect():
@@ -726,19 +714,23 @@ def on_auth(data):
 def on_disconnect():
     sid = request.sid
     connected_users.pop(sid, None)
-    # cleanup: if a player disconnects mid-battle, notify opponent
+    # FIX #5: cleanup semua phase, bukan hanya 'battle'
     for code, room in list(rooms.items()):
         for i, p in enumerate(room['players']):
-            if p.get('sid') == sid and room['phase'] == 'battle':
-                opp_idx = 1 - i
-                if len(room['players']) > opp_idx:
-                    opp_sid = room['players'][opp_idx].get('sid')
-                    if opp_sid:
-                        socketio.emit('opponent_disconnected', {
-                            'message': f"{p['username']} terputus dari pertandingan."
-                        }, room=opp_sid)
-                room['phase'] = 'ended'
-                rooms.pop(code, None)
+            if p.get('sid') == sid:
+                if room['phase'] in ('waiting', 'gbk'):
+                    # Room belum mulai — hapus langsung, tidak perlu notify siapapun
+                    rooms.pop(code, None)
+                elif room['phase'] == 'battle':
+                    opp_idx = 1 - i
+                    if len(room['players']) > opp_idx:
+                        opp_sid = room['players'][opp_idx].get('sid')
+                        if opp_sid:
+                            socketio.emit('opponent_disconnected', {
+                                'message': f"{p['username']} terputus dari pertandingan."
+                            }, room=opp_sid)
+                    room['phase'] = 'ended'
+                    rooms.pop(code, None)
                 break
 
 @socketio.on('rejoin_battle')
@@ -764,7 +756,6 @@ def on_rejoin_battle(data):
     })
 
 def get_socket_user():
-    """Get user purely from connected_users dict — no current_user fallback."""
     uid = connected_users.get(request.sid)
     if not uid:
         return None
@@ -780,6 +771,10 @@ def on_create_room(data):
     if len(team) != 3:
         emit('error', {'message': 'Pilih tepat 3 karakter.'})
         return
+
+    # FIX #8: cleanup room stale sebelum buat baru
+    cleanup_stale_rooms()
+
     code = ''.join(random.choices('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', k=6))
     chars = []
     for cid in team:
@@ -799,6 +794,7 @@ def on_create_room(data):
         'log': [],
         'gbk_choices': {},
         'selected_skills': {},
+        'created_at': time.time(),  # FIX #8: timestamp untuk TTL cleanup
     }
     join_room(code)
     emit('room_created', {'code': code})
@@ -848,7 +844,7 @@ def on_gbk_choice(data):
     if not user:
         return
     code = data.get('code')
-    choice = data.get('choice')  # 'rock', 'paper', 'scissors'
+    choice = data.get('choice')
     if code not in rooms:
         return
     room = rooms[code]
@@ -884,7 +880,7 @@ def on_select_skills(data):
         emit('error', {'message': 'Silakan login dulu.'})
         return
     code = data.get('code')
-    selected = data.get('selected', [])  # list of {card_index, target_char_id} or {is_skip: true}
+    selected = data.get('selected', [])
     if code not in rooms:
         emit('error', {'message': 'Room tidak ditemukan.'})
         return
@@ -903,18 +899,14 @@ def on_select_skills(data):
     p = room['players'][pidx]
     cards = p['cards']
     log = []
-    p['cards_reset_this_turn'] = False  # reset flag
+    p['cards_reset_this_turn'] = False
 
-    # Get stun/slow info for this player
     action_info = get_max_actions(p)
     stunned_ids = action_info['stunned_char_ids']
     slowed_ids = action_info['slowed_char_ids']
-
-    # Track how many skills each character uses this turn (for slow)
     char_skill_count = {}
 
     for sel in selected:
-        # Skip action
         if sel.get('is_skip'):
             log.append(f"{p['username']} melewati 1 aksi.")
             continue
@@ -933,12 +925,10 @@ def on_select_skills(data):
 
         actor = p['chars'][char_idx]
 
-        # FIX: Block stunned characters
         if char_id in stunned_ids:
             log.append(f"{actor['name']} masih kena stun, aksi dibatalkan!")
             continue
 
-        # FIX: Slow - only 1 skill allowed per character per turn
         if char_id in slowed_ids:
             char_skill_count[char_id] = char_skill_count.get(char_id, 0) + 1
             if char_skill_count[char_id] > 1:
@@ -948,50 +938,45 @@ def on_select_skills(data):
         skill_log = apply_skill(room, pidx, char_idx, card['skill'], target_id)
         log.extend(skill_log)
 
-        # FIX: kalau reset_cards terjadi, hentikan eksekusi sisa skill
-        # karena card_index yang dikirim frontend sudah tidak valid
         if p.get('cards_reset_this_turn'):
             p['cards_reset_this_turn'] = False
             log.append(f"Sisa aksi dibatalkan karena kartu sudah direset.")
             break
 
-        winner = check_winner(room)
-        if winner is not None:
+        # Cek winner di dalam loop tapi jangan proses di sini — cukup break
+        if check_winner(room) is not None:
             break
 
-    winner = check_winner(room)
-    if winner is not None:
+    # FIX #3: proses winner di SATU tempat setelah loop — hindari double emit/call
+    final_winner = check_winner(room)
+    if final_winner is not None:
         room['phase'] = 'ended'
         room['log'].extend(log)
-        _end_battle(room, winner)
+        _end_battle(room, final_winner)
         return
 
-    # switch turn
+    # Switch turn
     room['turn'] = 1 - pidx
     next_p = room['players'][room['turn']]
 
-    # tick status effects di AWAL giliran player berikutnya
-    # ini yang benar — stun/burn/dll baru berkurang saat giliran si pemilik tiba
     tick_log = tick_status_effects(next_p['chars'])
     log.extend(tick_log)
 
-    # refresh kartu player berikutnya (setelah tick, karena stun bisa mempengaruhi pool)
     pool = build_card_pool(next_p['chars'])
     next_p['cards'] = draw_cards(pool)
 
-    winner = check_winner(room)
-    if winner is not None:
+    # Cek lagi setelah tick (bisa mati kena burn/bleed setelah giliran ganti)
+    final_winner = check_winner(room)
+    if final_winner is not None:
         room['phase'] = 'ended'
         room['log'].extend(log)
-        _end_battle(room, winner)
+        _end_battle(room, final_winner)
         return
 
-    # Add turn separator
     separator = f"---TURN:{room['players'][pidx]['username']}---"
     room['log'].append(separator)
     room['log'].extend(log)
 
-    # Send personalized turn_result to each player
     code_for_emit = next((k for k, v in rooms.items() if v is room), None)
     if code_for_emit:
         for i in range(2):
@@ -1019,18 +1004,15 @@ def _end_battle(room, winner_idx):
             'log': room['log'],
             'room': sanitize_room(room, i),
         }, room=room['players'][i]['sid'])
-    # cleanup room
     code_to_remove = next((k for k, v in rooms.items() if v is room), None)
     if code_to_remove:
         rooms.pop(code_to_remove, None)
 
 def sanitize_room(room, player_idx):
-    """Return room state safe to send to a specific player."""
     players_out = []
     current_turn = room['turn']
     for i, p in enumerate(room['players']):
         show_cards = (i == player_idx) and (player_idx == current_turn)
-        # Include stun info so frontend can show ❌ overlay
         action_info = get_max_actions(p) if i == player_idx else {'stunned_char_ids': set(), 'slowed_char_ids': set()}
         players_out.append({
             'username': p['username'],
