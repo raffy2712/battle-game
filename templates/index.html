@@ -608,6 +608,7 @@ socket.on('turn_result', (data) => {
   currentRoom = data.room;
   selectedCards = [];
   pendingTargetCard = null;
+  console.log('turn_result: room.turn=', data.room.turn, 'myPlayerIndex=', myPlayerIndex);
   renderBattle();
 });
 
@@ -648,7 +649,7 @@ function renderBattle() {
     </div>
   `;
 
-  if (isMyTurn) {
+  if (isMyTurn && me.cards && me.cards.length > 0 && me.cards[0].skill && me.cards[0].skill.name !== '?') {
     html += renderCardSection(me.cards, opp.chars);
   }
 
