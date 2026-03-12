@@ -402,6 +402,7 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
             blocked = any(b['type'] in ['block_all', 'invincible_counter'] for b in target['buffs'])
             counter_buff = next((b for b in target['buffs'] if b['type'] == 'counter'), None)
             total_dmg = 0
+            start_hp = target['hp']
             for h in range(hits):
                 is_last = (h == hits - 1)
                 dmg = calc_damage(actor, target, skill, boost if h == 0 else 0)
@@ -414,6 +415,13 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                         actor['is_alive'] = False
                     log.append(f"{actor['name']} menyerang {target['name']} tapi diblok! {math.floor(dmg * reflect_val)} damage balik ke {actor['name']}.")
                 else:
+                    # Terapkan shield: kurangi damage masuk berdasarkan total nilai shield aktif
+                    shield_factor = 1.0
+                    for b in target['buffs']:
+                        if b['type'] == 'shield':
+                            shield_factor *= max(0.0, 1.0 - b.get('value', 0.0))
+                    if shield_factor < 1.0 and dmg > 0:
+                        dmg = math.floor(dmg * shield_factor)
                     undying = any(b['type'] == 'undying' for b in target['buffs'])
                     target['hp'] = max(1 if undying else 0, target['hp'] - dmg)
                     total_dmg += dmg
@@ -449,7 +457,8 @@ def apply_skill(room, acting_player, char_idx, skill, target_char_id=None):
                     log.append(f"{actor['name']} heal diri sendiri +{heal_amt} HP.")
 
                 if skill.get('overflow_damage') and target['hp'] <= 0:
-                    overflow = total_dmg - (target['hp'] + total_dmg)
+                    # Sisa damage yang "kelebihan" dari HP awal target dialirkan ke musuh berikutnya
+                    overflow = max(0, total_dmg - start_hp)
                     next_alive = next((c for c in opp['chars'] if c['is_alive'] and c['id'] != target['id']), None)
                     if next_alive and overflow > 0:
                         next_alive['hp'] = max(0, next_alive['hp'] - overflow)
